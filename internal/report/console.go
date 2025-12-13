@@ -31,10 +31,27 @@ func PrintResults(results <-chan scanner.ScanResult) { //(<-chan): el canal es s
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "PORT\tSTATE\tPROTOCOL")
+	//verificar si se capturo algun banner
+	showBanner := false
 	for _, res := range openPorts {
-		fmt.Fprintf(w, "%d\t%s\ttcp\n", res.Port, "OPEN")
+		if res.Banner != "" {
+			showBanner = true
+			break
+		}
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	if showBanner { //si se capturo algun banner -> agregar apartado BANNER en la tabla
+		fmt.Fprintln(w, "PORT\tSTATE\tPROTOCOL\tBANNER")
+		for _, res := range openPorts {
+			fmt.Fprintf(w, "%d\t%s\ttcp\t%s\n", res.Port, "OPEN", res.Banner)
+		}
+
+	} else { //si no -> simplemente no se muestra el apartado BANNER
+		fmt.Fprintln(w, "PORT\tSTATE\tPROTOCOL")
+		for _, res := range openPorts {
+			fmt.Fprintf(w, "%d\t%s\ttcp\n", res.Port, "OPEN")
+		}
 	}
 	w.Flush()
 	fmt.Println("------------------------------")

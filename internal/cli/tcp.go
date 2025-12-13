@@ -39,6 +39,7 @@ func handleTCPConnect(args []string) {
 	portRange := cmd.String("p", "1-1024", "Ports to scan (e.g: '80', '1-1024', '80,443')")
 	timeoutMs := cmd.Int("timeout", 1000, "Timeout per connection in ms")
 	concurrency := cmd.Int("threads", 100, "Maximum number of concurrent connections")
+	banner := cmd.Bool("banner", false, "Enable passive banner grabbing on supported ports")
 
 	cmd.Parse(args) //parsear flags
 
@@ -70,11 +71,12 @@ func handleTCPConnect(args []string) {
 
 	//crear configuracion
 	cfg := &config.Config{
-		Target:      resolvedIP, //utilizar IP resuelta
-		PortRange:   *portRange,
-		Ports:       ports,
-		Timeout:     time.Duration(*timeoutMs) * time.Millisecond,
-		Concurrency: *concurrency,
+		Target:       resolvedIP, //utilizar IP resuelta
+		PortRange:    *portRange,
+		Ports:        ports,
+		Timeout:      time.Duration(*timeoutMs) * time.Millisecond,
+		Concurrency:  *concurrency,
+		EnableBanner: *banner, //banner grabbing
 	}
 
 	//ejecutar escaneo
@@ -87,6 +89,7 @@ func handleTCPConnect(args []string) {
 		cfg.Ports,
 		cfg.Timeout,
 		cfg.Concurrency,
+		cfg.EnableBanner,
 	)
 
 	//preparar canal de resultados
