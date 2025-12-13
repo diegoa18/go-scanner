@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"fmt"
+	"go-scanner/internal/banner"
 	"net"  //API de red
 	"sync" //sincronizacion
 	"time"
@@ -9,19 +10,21 @@ import (
 
 // encapsula todo el estado necesario para realizar un escaneo TCP
 type TCPConnectScanner struct {
-	Target      string        //host o ip objetivo
-	Ports       []int         //puertos a escanear
-	Timeout     time.Duration //timeout por conexion
-	Concurrency int           //numero maximo de conexiones concurrentes
+	Target       string        //host o ip objetivo
+	Ports        []int         //puertos a escanear
+	Timeout      time.Duration //timeout por conexion
+	Concurrency  int           //numero maximo de conexiones concurrentes
+	EnableBanner bool          //habilitar banner grabbing pasivo
 }
 
 // nueva instacia de TCPConnectScanner
-func NewTCPConnectScanner(target string, ports []int, timeout time.Duration, concurrency int) *TCPConnectScanner {
+func NewTCPConnectScanner(target string, ports []int, timeout time.Duration, concurrency int, enableBanner bool) *TCPConnectScanner {
 	return &TCPConnectScanner{
-		Target:      target,
-		Ports:       ports,
-		Timeout:     timeout,
-		Concurrency: concurrency,
+		Target:       target,
+		Ports:        ports,
+		Timeout:      timeout,
+		Concurrency:  concurrency,
+		EnableBanner: enableBanner, //banner grabbing
 	}
 }
 
@@ -42,10 +45,11 @@ func (s *TCPConnectScanner) Scan(results chan<- ScanResult) {
 			defer wg.Done()
 			defer func() { <-sem }() //libera el slot del semaforo
 
-			isOpen := s.scanPort(p)
+			isOpen, bannerText := s.scanPort(p)
 			results <- ScanResult{
 				Port:   p,
 				IsOpen: isOpen,
+				Banner: bannerText, //incluir banner grabbing
 			}
 		}(port)
 	}
@@ -54,14 +58,22 @@ func (s *TCPConnectScanner) Scan(results chan<- ScanResult) {
 }
 
 // intentar establecer una conexion TCP con el target:puerto
-func (s *TCPConnectScanner) scanPort(port int) bool {
+func (s *TCPConnectScanner) scanPort(port int) (bool, string) {
 	address := net.JoinHostPort(s.Target, fmt.Sprintf("%d", port)) //endpoint TCP estandar
 	conn, err := net.DialTimeout("tcp", address, s.Timeout)
 
 	if err != nil {
-		return false
+		return false, ""
 	}
 
-	conn.Close()
-	return true
+	defer conn.Close()
+
+	var collectedBanner string
+	if s.EnableBanner {
+		// Intentar obtener banner pasivo si la opcion esta habilitada
+		// Ignoramos el error intencionalmente ya que no afecta el estado del puerto
+		collectedBanner, _ = banner.Grab(conn, port)
+	}
+
+	return true, collectedBanner
 }
