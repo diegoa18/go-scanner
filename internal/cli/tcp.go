@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"go-scanner/internal/config"
 	"go-scanner/internal/report"
-	"go-scanner/internal/scanner"
+	"go-scanner/internal/scanner" //import service detection
+	"go-scanner/internal/service"
 	"go-scanner/internal/utils"
 	"os"
 	"time"
@@ -99,8 +100,24 @@ func handleTCPConnect(args []string) {
 	startTime := time.Now()
 	go tcpScanner.Scan(results)
 
-	//procesar resultados
-	report.PrintResults(results)
+	//resultados enriquecidos usando service detection
+	enrichedResults := make(chan scanner.ScanResult)
+
+	go func() {
+		defer close(enrichedResults)
+
+		for res := range results {
+			if res.IsOpen {
+				//aqui es donde se detecta el servicio, no en el core del scanner
+				svcInfo := service.Detect(res.Port, res.Banner)
+				res.Service = string(svcInfo.Type) //asignacion del tipo detectado
+			}
+			enrichedResults <- res
+		}
+	}()
+
+	//ahora si, procesar los resultados
+	report.PrintResults(enrichedResults)
 
 	elapsed := time.Since(startTime)
 	fmt.Printf("Scan completed in %v\n", elapsed)
