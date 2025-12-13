@@ -1,5 +1,6 @@
 package scanner
 
+//TCP CONNECT SCAN
 import (
 	"fmt"
 	"go-scanner/internal/banner"
