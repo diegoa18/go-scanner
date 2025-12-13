@@ -50,11 +50,15 @@ func handleTCPConnect(args []string) {
 	}
 	target := cmd.Arg(0)
 
-	//validar IP con internal/utils
-	if !utils.IsValidIP(target) {
-		//SE PODRIA AGREGAR UNA RESOLUCION DNS :3
-		//por ahora adevertencia con un print penca
-		fmt.Printf("warning: %s its seems not a valid IP\n", target)
+	//utilizar resolucion de IP
+	resolvedIP, err := utils.Resolve(target)
+	if err != nil {
+		fmt.Printf("Error resolving target: %v\n", err)
+		os.Exit(1)
+	}
+
+	if resolvedIP != target {
+		fmt.Printf("Resolved %s to %s\n", target, resolvedIP)
 	}
 
 	//parsear puertos con internal/utils
@@ -66,7 +70,7 @@ func handleTCPConnect(args []string) {
 
 	//crear configuracion
 	cfg := &config.Config{
-		Target:      target,
+		Target:      resolvedIP, //utilizar IP resuelta
 		PortRange:   *portRange,
 		Ports:       ports,
 		Timeout:     time.Duration(*timeoutMs) * time.Millisecond,
