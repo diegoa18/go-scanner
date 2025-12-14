@@ -1,16 +1,16 @@
 package cli
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"go-scanner/internal/config"
-	"go-scanner/internal/probe" //el probe we
+	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/report"
-	"go-scanner/internal/scanner" //import service detection
-	"go-scanner/internal/service"
+	"go-scanner/internal/scanner"
 	"go-scanner/internal/utils"
 	"os"
-	"strings" //strings
+	"strings"
 	"time"
 )
 
@@ -92,14 +92,21 @@ func handleTCPConnect(args []string) {
 		ProbeTypes:   activeProbes, //tipos de probes
 	}
 
-	//ejecutar escaneo
-	fmt.Printf("Starting TCP Connect scan to %s (Range: %s, %d ports)\n", cfg.Target, cfg.PortRange, len(cfg.Ports))
-	fmt.Printf("Configuration: %d workers | Timeout: %v\n", cfg.Concurrency, cfg.Timeout)
-	if cfg.EnableProbe {
-		fmt.Printf("Active Probing ENABLED: %v\n", cfg.ProbeTypes)
+	if err := cfg.Validate(); err != nil {
+		fmt.Printf("Configuration error: %v\n", err)
+		os.Exit(1)
 	}
 
-	//instanciar scanner
+	//contruccion de policy
+	policy := orchestrator.ScanPolicy{
+		Timeout:          cfg.Timeout,
+		Concurrency:      cfg.Concurrency,
+		ServiceDetection: true,
+		ActiveProbing:    cfg.EnableProbe,
+		AllowedProbes:    cfg.ProbeTypes,
+	}
+
+	//scanner base
 	tcpScanner := scanner.NewTCPConnectScanner(
 		cfg.Target,
 		cfg.Ports,
@@ -108,74 +115,31 @@ func handleTCPConnect(args []string) {
 		cfg.EnableBanner,
 	)
 
-	//preparar canal de resultados
-	results := make(chan scanner.ScanResult)
+	//motor de ejecucion
+	engine := orchestrator.NewEngine(policy, cfg.Target, cfg.Ports, tcpScanner)
+	fmt.Printf("Starting TCP Connect scan to %s (Range: %s, %d ports)\n",
+		cfg.Target,
+		cfg.PortRange,
+		len(cfg.Ports))
 
-	//tiempo
+	fmt.Printf("Configuration: %d workers | Timeout: %v\n",
+		cfg.Concurrency,
+		cfg.Timeout)
+
+	if policy.ActiveProbing {
+		fmt.Printf("Active Probing ENABLED: %v\n",
+			policy.AllowedProbes)
+	}
+
+	//ejecutar la pipeline
+	ctx := context.Background()
 	startTime := time.Now()
-	go tcpScanner.Scan(results)
 
-	//resultados enriquecidos usando service detection
-	enrichedResults := make(chan scanner.ScanResult)
+	//resultados procesados por el motor
+	results := engine.Run(ctx)
 
-	go func() {
-		defer close(enrichedResults)
-
-		//registro de probes existentes
-		probers := map[service.ServiceType]probe.Prober{
-			service.ServiceHTTP:  probe.NewHTTPProbe(),
-			service.ServiceHTTPS: probe.NewHTTPProbe(),
-		}
-
-		for res := range results {
-			if res.IsOpen {
-				//deteccion de servicio pasiva
-				svcInfo := service.Detect(res.Port, res.Banner)
-				res.Service = string(svcInfo.Type)
-
-				//solo si se habilita el probe mediante consola
-				if cfg.EnableProbe {
-					// Verificar si existe un prober para este servicio detectado
-					if prober, ok := probers[svcInfo.Type]; ok {
-
-						//verificar si se permitio ese tipo de probe
-						allowed := false
-						for _, t := range cfg.ProbeTypes {
-							if t == strings.ToLower(string(svcInfo.Type)) || t == "all" {
-								allowed = true
-								break
-							}
-
-							//mapeo simple http/https
-							if (svcInfo.Type == service.ServiceHTTP || svcInfo.Type == service.ServiceHTTPS) && (t == "http" || t == "https") {
-								allowed = true
-								break
-							}
-						}
-
-						if allowed {
-							//ejecutar el probe
-							probeBanner, err := prober.Probe(cfg.Target, res.Port, 3*time.Second)
-
-							if err == nil && probeBanner != "" {
-
-								if res.Banner != "" {
-									res.Banner = res.Banner + " | " + probeBanner
-
-								} else {
-									res.Banner = probeBanner
-								}
-							}
-						}
-					}
-				}
-			}
-			enrichedResults <- res
-		}
-	}()
-
-	//ahora si, procesar los resultados
-	report.PrintResults(enrichedResults)
+	//reportar
+	report.PrintResults(results)
 
 	elapsed := time.Since(startTime)
 	fmt.Printf("Scan completed in %v\n", elapsed)
