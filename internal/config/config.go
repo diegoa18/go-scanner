@@ -12,4 +12,6 @@ type Config struct {
 	Timeout      time.Duration // tiempo maximo de espera por conexion
 	Concurrency  int           // numero de gorutinas concurrentes
 	EnableBanner bool          // habilitar banner grabbing pasivo
+	EnableProbe  bool          // habilitar probing activo
+	ProbeTypes   []string      // tipos de probes activos permitidos (default: todos o http)
 }

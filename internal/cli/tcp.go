@@ -4,11 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"go-scanner/internal/config"
+	"go-scanner/internal/probe" //el probe we
 	"go-scanner/internal/report"
 	"go-scanner/internal/scanner" //import service detection
 	"go-scanner/internal/service"
 	"go-scanner/internal/utils"
 	"os"
+	"strings" //strings
 	"time"
 )
 
@@ -41,6 +43,8 @@ func handleTCPConnect(args []string) {
 	timeoutMs := cmd.Int("timeout", 1000, "Timeout per connection in ms")
 	concurrency := cmd.Int("threads", 100, "Maximum number of concurrent connections")
 	banner := cmd.Bool("banner", false, "Enable passive banner grabbing on supported ports")
+	probeFlag := cmd.Bool("probe", false, "Enable ACTIVE probing on detected services")
+	probeTypes := cmd.String("probe-types", "http,https", "Comma-separated list of probe types to run (default: http,https)")
 
 	cmd.Parse(args) //parsear flags
 
@@ -70,6 +74,12 @@ func handleTCPConnect(args []string) {
 		os.Exit(1)
 	}
 
+	//parsear probes types
+	activeProbes := strings.Split(*probeTypes, ",")
+	for i := range activeProbes {
+		activeProbes[i] = strings.TrimSpace(strings.ToLower(activeProbes[i]))
+	}
+
 	//crear configuracion
 	cfg := &config.Config{
 		Target:       resolvedIP, //utilizar IP resuelta
@@ -77,12 +87,17 @@ func handleTCPConnect(args []string) {
 		Ports:        ports,
 		Timeout:      time.Duration(*timeoutMs) * time.Millisecond,
 		Concurrency:  *concurrency,
-		EnableBanner: *banner, //banner grabbing
+		EnableBanner: *banner,      //banner grabbing
+		EnableProbe:  *probeFlag,   //active probing
+		ProbeTypes:   activeProbes, //tipos de probes
 	}
 
 	//ejecutar escaneo
 	fmt.Printf("Starting TCP Connect scan to %s (Range: %s, %d ports)\n", cfg.Target, cfg.PortRange, len(cfg.Ports))
 	fmt.Printf("Configuration: %d workers | Timeout: %v\n", cfg.Concurrency, cfg.Timeout)
+	if cfg.EnableProbe {
+		fmt.Printf("Active Probing ENABLED: %v\n", cfg.ProbeTypes)
+	}
 
 	//instanciar scanner
 	tcpScanner := scanner.NewTCPConnectScanner(
@@ -106,11 +121,54 @@ func handleTCPConnect(args []string) {
 	go func() {
 		defer close(enrichedResults)
 
+		//registro de probes existentes
+		probers := map[service.ServiceType]probe.Prober{
+			service.ServiceHTTP:  probe.NewHTTPProbe(),
+			service.ServiceHTTPS: probe.NewHTTPProbe(),
+		}
+
 		for res := range results {
 			if res.IsOpen {
-				//aqui es donde se detecta el servicio, no en el core del scanner
+				//deteccion de servicio pasiva
 				svcInfo := service.Detect(res.Port, res.Banner)
-				res.Service = string(svcInfo.Type) //asignacion del tipo detectado
+				res.Service = string(svcInfo.Type)
+
+				//solo si se habilita el probe mediante consola
+				if cfg.EnableProbe {
+					// Verificar si existe un prober para este servicio detectado
+					if prober, ok := probers[svcInfo.Type]; ok {
+
+						//verificar si se permitio ese tipo de probe
+						allowed := false
+						for _, t := range cfg.ProbeTypes {
+							if t == strings.ToLower(string(svcInfo.Type)) || t == "all" {
+								allowed = true
+								break
+							}
+
+							//mapeo simple http/https
+							if (svcInfo.Type == service.ServiceHTTP || svcInfo.Type == service.ServiceHTTPS) && (t == "http" || t == "https") {
+								allowed = true
+								break
+							}
+						}
+
+						if allowed {
+							//ejecutar el probe
+							probeBanner, err := prober.Probe(cfg.Target, res.Port, 3*time.Second)
+
+							if err == nil && probeBanner != "" {
+
+								if res.Banner != "" {
+									res.Banner = res.Banner + " | " + probeBanner
+
+								} else {
+									res.Banner = probeBanner
+								}
+							}
+						}
+					}
+				}
 			}
 			enrichedResults <- res
 		}
