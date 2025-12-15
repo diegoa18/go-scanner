@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go-scanner/internal/config"
 	"go-scanner/internal/orchestrator"
+	"go-scanner/internal/profile"
 	"go-scanner/internal/report"
 	"go-scanner/internal/scanner"
 	"go-scanner/internal/utils"
@@ -39,9 +40,10 @@ func handleTCPConnect(args []string) {
 	cmd := flag.NewFlagSet("connect", flag.ExitOnError)
 
 	//flags de tcp connect
+	profileName := cmd.String("profile", "default", "Scan profile: passive, default, aggressive")
 	portRange := cmd.String("p", "1-1024", "Ports to scan (e.g: '80', '1-1024', '80,443')")
-	timeoutMs := cmd.Int("timeout", 1000, "Timeout per connection in ms")
-	concurrency := cmd.Int("threads", 100, "Maximum number of concurrent connections")
+	timeoutMs := cmd.Int("timeout", -1, "Timeout per connection in ms (default: from profile)")
+	concurrency := cmd.Int("threads", -1, "Maximum number of concurrent connections (default: from profile)")
 	banner := cmd.Bool("banner", false, "Enable passive banner grabbing on supported ports")
 	probeFlag := cmd.Bool("probe", false, "Enable ACTIVE probing on detected services")
 	probeTypes := cmd.String("probe-types", "http,https", "Comma-separated list of probe types to run (default: http,https)")
@@ -74,36 +76,52 @@ func handleTCPConnect(args []string) {
 		os.Exit(1)
 	}
 
+	//cargar perfil base
+	selectedProfile, ok := profile.Get(*profileName)
+	if !ok {
+		fmt.Printf("Error: unknown profile '%s'\n", *profileName)
+		fmt.Printf("Available profiles: %v\n", profile.Available())
+		os.Exit(1)
+	}
+
+	//construir policy desde perfil
+	policy := selectedProfile.Policy
+
+	//aplicar overrides explicitos de las flags
+	if *timeoutMs > 0 {
+		policy.Timeout = time.Duration(*timeoutMs) * time.Millisecond
+	}
+	if *concurrency > 0 {
+		policy.Concurrency = *concurrency
+	}
+
 	//parsear probes types
 	activeProbes := strings.Split(*probeTypes, ",")
 	for i := range activeProbes {
 		activeProbes[i] = strings.TrimSpace(strings.ToLower(activeProbes[i]))
 	}
 
-	//crear configuracion
+	//override de active probing si --probe fue escrito
+	if *probeFlag {
+		policy.ActiveProbing = true
+		policy.AllowedProbes = activeProbes
+	}
+
+	//crear configuracion (solo para scanner base)
 	cfg := &config.Config{
-		Target:       resolvedIP, //utilizar IP resuelta
+		Target:       resolvedIP,
 		PortRange:    *portRange,
 		Ports:        ports,
-		Timeout:      time.Duration(*timeoutMs) * time.Millisecond,
-		Concurrency:  *concurrency,
-		EnableBanner: *banner,      //banner grabbing
-		EnableProbe:  *probeFlag,   //active probing
-		ProbeTypes:   activeProbes, //tipos de probes
+		Timeout:      policy.Timeout,
+		Concurrency:  policy.Concurrency,
+		EnableBanner: *banner,
+		EnableProbe:  policy.ActiveProbing,
+		ProbeTypes:   policy.AllowedProbes,
 	}
 
 	if err := cfg.Validate(); err != nil {
 		fmt.Printf("Configuration error: %v\n", err)
 		os.Exit(1)
-	}
-
-	//contruccion de policy
-	policy := orchestrator.ScanPolicy{
-		Timeout:          cfg.Timeout,
-		Concurrency:      cfg.Concurrency,
-		ServiceDetection: true,
-		ActiveProbing:    cfg.EnableProbe,
-		AllowedProbes:    cfg.ProbeTypes,
 	}
 
 	//scanner base
@@ -117,14 +135,17 @@ func handleTCPConnect(args []string) {
 
 	//motor de ejecucion
 	engine := orchestrator.NewEngine(policy, cfg.Target, cfg.Ports, tcpScanner)
+
+	//mostrar configuración
+	fmt.Printf("Profile: %s (%s)\n", selectedProfile.Name, selectedProfile.Description)
 	fmt.Printf("Starting TCP Connect scan to %s (Range: %s, %d ports)\n",
 		cfg.Target,
 		cfg.PortRange,
 		len(cfg.Ports))
 
 	fmt.Printf("Configuration: %d workers | Timeout: %v\n",
-		cfg.Concurrency,
-		cfg.Timeout)
+		policy.Concurrency,
+		policy.Timeout)
 
 	if policy.ActiveProbing {
 		fmt.Printf("Active Probing ENABLED: %v\n",

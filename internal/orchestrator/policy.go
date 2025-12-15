@@ -16,6 +16,7 @@ type ScanPolicy struct {
 }
 
 //retorna una politica segura por defecto
+//CONSIDERAR USAR profile.Default.Policy EN SU LUGAR
 func DefaultPolicy() ScanPolicy {
 	return ScanPolicy{
 		Timeout:          1 * time.Second,
