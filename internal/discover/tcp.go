@@ -28,12 +28,13 @@ func NewTCPConnectDiscoverer(ports []int, timeout time.Duration) *TCPConnectDisc
 
 func (d *TCPConnectDiscoverer) Discover(ctx context.Context, target string) (HostResult, error) {
 	result := HostResult{
-		IP:     target,
-		Alive:  false,
-		Method: "tcp-connect",
+		IP:        target,
+		Alive:     false,
+		Method:    "tcp-connect",
+		Timestamp: time.Now(),
 	}
 
-	//iterar sobre puertos definidos
+	// iterar sobre puertos definidos
 	for _, port := range d.Ports {
 		address := fmt.Sprintf("%s:%d", target, port)
 
@@ -49,17 +50,20 @@ func (d *TCPConnectDiscoverer) Discover(ctx context.Context, target string) (Hos
 			conn.Close()
 			result.Alive = true
 			result.RTT = time.Since(start)
+			result.Reason = fmt.Sprintf("syn-ack_port-%d", port)
 			return result, nil
 		}
 
-		//analizar error
+		// analizar error
 		if isConnectionRefused(err) {
 			result.Alive = true // host respondio RST
 			result.RTT = time.Since(start)
+			result.Reason = fmt.Sprintf("rst_port-%d", port)
 			return result, nil
 		}
 	}
 
+	result.Reason = "timeout"
 	return result, nil
 }
 

@@ -31,9 +31,12 @@ func DefaultPolicy() ScanPolicy {
 
 		//SECCION DISCOVERY
 		Discovery: discover.Policy{
-			Enabled: true,
-			Methods: []string{"icmp", "tcp-connect"},
-			Timeout: 2 * time.Second,
+			Enabled:     true,
+			Methods:     []string{"icmp", "tcp-connect"},
+			Timeout:     2 * time.Second,
+			MaxHosts:    1000,
+			Concurrency: 50,
+			Delay:       0,
 		},
 	}
 }

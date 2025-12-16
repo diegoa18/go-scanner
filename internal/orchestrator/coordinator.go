@@ -32,66 +32,48 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 	go func() {
 		defer close(out)
 
-		// 1. Discovery Phase
+		//fase de descubrimiento
 		scannableTargets := targets
 		if c.Policy.Discovery.Enabled {
 			fmt.Printf("Starting discovery phase on %d targets...\n", len(targets))
-			alive, err := discover.Run(ctx, targets, c.Policy.Discovery)
+			aliveResults, err := discover.Run(ctx, targets, c.Policy.Discovery)
+
 			if err != nil {
-				// Log error?
 				fmt.Printf("Discovery error: %v\n", err)
 				return
 			}
-			scannableTargets = alive
-			fmt.Printf("Discovery complete. %d/%d hosts alive.\n", len(alive), len(targets))
+
+			//extraer IPs de los resultados vivos
+			aliveIPs := make([]string, 0, len(aliveResults))
+			for _, r := range aliveResults {
+				if r.Alive {
+					aliveIPs = append(aliveIPs, r.IP)
+					//PENDIENTE -> pasar metadata a scanner/report si es necesario
+				}
+			}
+			scannableTargets = aliveIPs
+			fmt.Printf("Discovery complete. %d/%d hosts alive.\n", len(scannableTargets), len(targets))
 		}
 
-		// 2. Access Scannable Targets
-		// Si es muchos hosts, queremos paralelizar el escaneo DE HOSTS o solo los puertos?
-		// Engine paralela puertos. Si corremos 100 engines a la vez, explotamos.
-		// Deberimos tener un semaforo para Hosts concurrentes.
-		// ScanPolicy.Concurrency es "concurrencia total del sistema" o "por host"?
-		// En Policy dice "Maximum number of concurrent connections".
-		// Si es por host, hay que serializar hosts o dividir concurrencia.
-		// Por simplicidad en esta iteracion: Serial o worker pool limitado de hosts.
-
-		// Worker pool para hosts
-
-		// Si policy.Concurrency es 100, y hostConcurrency es 5, cada host usa 20? No, Engine usa Policy.Concurrency.
-		// Para no saturar FD, corremos hosts secuenciales o pocos paralelos.
-		// Vamos a correr secuencial por ahora para respetar limites de policy global (ya que policy se pasa a cada engine).
-
+		//iterar sobre targets
 		for _, target := range scannableTargets {
-			// Check context
+			//revisar contexto
 			select {
 			case <-ctx.Done():
 				return
 			default:
 			}
 
-			// Crear Scanner via Factory
+			//crear scanner via factory
 			s := c.Factory(target)
 
-			// Crear Engine
-			// Engine usa la Policy Global. Si la policy dice 100 hilos, usara 100 hilos.
-			engine := NewEngine(c.Policy, target, nil, s) // Ports? El scanner ya tiene los puertos configurados en el Factory?
-			// Engine struct tiene Ports []int. Pero Engine no los usa para escanear, solo para Data Structs?
-			// Engine.Run llama a Scanner.Scan(). El Scanner ya sabe sus puertos.
-			// Engine.Ports es redundante o informativo?
-			// En Engine.Run no se usa e.Ports. Revisar engine.go.
-			// Engine struct field Ports is used?
-			// NewEngine(..., ports, ...)
-			// En internal/orchestrator/engine.go:
-			// func NewEngine... targets, ports...
-			// e.Ports = ports
-			// Pero Run() no usa e.Ports.
-			// OK, pasamos nil o vacio si el Factory ya configuro el scanner.
-			// El issue es que scanner.Scanner interface Scan() devuelve resultados que tiene el puerto.
+			//crear engine
+			engine := NewEngine(c.Policy, target, nil, s)
 
-			// Run engine
+			//ejecutar engine
 			results := engine.Run(ctx)
 
-			// Forward results
+			//resultados
 			for res := range results {
 				out <- res
 			}
