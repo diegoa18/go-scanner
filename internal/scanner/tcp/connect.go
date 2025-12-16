@@ -1,9 +1,10 @@
-package scanner
+package tcp
 
 //TCP CONNECT SCAN
 import (
 	"fmt"
 	"go-scanner/internal/banner"
+	"go-scanner/internal/scanner"
 	"net"  //API de red
 	"sync" //sincronizacion
 	"time"
@@ -30,7 +31,7 @@ func NewTCPConnectScanner(target string, ports []int, timeout time.Duration, con
 }
 
 // debe iterar sobre los puertos y lanzar gorutinas limitadas
-func (s *TCPConnectScanner) Scan(results chan<- ScanResult) {
+func (s *TCPConnectScanner) Scan(results chan<- scanner.ScanResult) {
 	defer close(results)
 
 	var wg sync.WaitGroup
@@ -47,7 +48,7 @@ func (s *TCPConnectScanner) Scan(results chan<- ScanResult) {
 			defer func() { <-sem }() //libera el slot del semaforo
 
 			isOpen, bannerText := s.scanPort(p)
-			results <- ScanResult{
+			results <- scanner.ScanResult{
 				Port:   p,
 				IsOpen: isOpen,
 				Banner: bannerText, //incluir banner grabbing

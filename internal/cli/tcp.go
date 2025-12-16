@@ -8,7 +8,7 @@ import (
 	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/profile"
 	"go-scanner/internal/report"
-	"go-scanner/internal/scanner"
+	"go-scanner/internal/scanner/tcp"
 	"go-scanner/internal/utils"
 	"os"
 	"strings"
@@ -125,7 +125,7 @@ func handleTCPConnect(args []string) {
 	}
 
 	//scanner base
-	tcpScanner := scanner.NewTCPConnectScanner(
+	tcpScanner := tcp.NewTCPConnectScanner(
 		cfg.Target,
 		cfg.Ports,
 		cfg.Timeout,

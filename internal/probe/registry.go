@@ -3,6 +3,7 @@ package probe
 //REGISTRO DE PROBERS
 import (
 	"fmt"
+	"go-scanner/internal/probe/http"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func Available() []string {
 // default probers
 func init() {
 	//http/s apuntan al mismo prober
-	h := NewHTTPProbe()
+	h := http.NewHTTPProbe()
 	Register("http", h)
 	Register("https", h)
 }
