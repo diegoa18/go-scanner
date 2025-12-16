@@ -4,6 +4,7 @@ import "fmt"
 
 //es el resultado del escaneo de un unico puerto
 type ScanResult struct {
+	Host    string //IP o hostname
 	Port    int
 	IsOpen  bool
 	Service string //nombre del servicio
@@ -17,7 +18,7 @@ func (r ScanResult) String() string {
 	if r.IsOpen {
 		status = "OPEN"
 	}
-	return fmt.Sprintf("Port %d: %s", r.Port, status)
+	return fmt.Sprintf("[%s] Port %d: %s", r.Host, r.Port, status)
 }
 
 //define el contrato para cualquier tipo de escaner

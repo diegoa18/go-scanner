@@ -49,6 +49,7 @@ func (s *TCPConnectScanner) Scan(results chan<- scanner.ScanResult) {
 
 			isOpen, bannerText := s.scanPort(p)
 			results <- scanner.ScanResult{
+				Host:   s.Target,
 				Port:   p,
 				IsOpen: isOpen,
 				Banner: bannerText, //incluir banner grabbing
