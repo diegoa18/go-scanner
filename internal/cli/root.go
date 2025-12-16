@@ -20,10 +20,9 @@ func Execute() {
 
 	switch command {
 	case "tcp":
-		handleTCPCommand(subArgs) // Llama a la funcion en tcp.go (mismo paquete)
-	/*
-		AQUI AGREGAR MAS CASOS, TAMBIEN EVALUAR SI ES FACTIBLE USAR SWITCH CASE (NO LO CREOOOOO)
-	*/
+		handleTCPCommand(subArgs)
+	case "discover":
+		handleDiscoverCommand(subArgs)
 	default:
 		fmt.Printf("unknown command: %s\n", command)
 		printUsage()

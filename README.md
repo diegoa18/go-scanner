@@ -80,3 +80,17 @@ go-scanner.exe tcp connect --profile aggressive -p 80,443,8080 target.com
 # Passive profile with active probing override
 go-scanner.exe tcp connect --profile passive --probe --banner -p 22,80,443 target.com
 ```
+
+### Host Discovery (ICMP)
+
+New command to detect alive hosts using ICMP Echo Requests (Ping).
+
+> **Note:** This command usually requires Administrator/Root privileges to create raw sockets.
+
+```bash
+# Basic ICMP discovery
+go-scanner.exe discover icmp 8.8.8.8
+
+# With custom timeout (ms)
+go-scanner.exe discover icmp -timeout 500 192.168.1.1
+```
