@@ -26,21 +26,25 @@ func NewICMPDiscoverer(timeout time.Duration) *ICMPDiscoverer {
 // envia ping
 func (d *ICMPDiscoverer) Discover(ctx context.Context, target string) (HostResult, error) {
 	result := HostResult{
-		IP:     target,
-		Alive:  false,
-		Method: "icmp",
+		IP:        target,
+		Alive:     false,
+		Method:    "icmp",
+		Timestamp: time.Now(),
 	}
 
-	c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0") //creacion del socket (requiere permisos)
+	c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
-		//probablemente falta de privilegios
-		return result, fmt.Errorf("error listening for ICMP (root required?): %w", err)
+		result.Error = err
+		result.Reason = "socket-error"
+		return result, fmt.Errorf("icmp listen error: %w", err)
 	}
 	defer c.Close()
 
 	//resolver IP
 	dst, err := net.ResolveIPAddr("ip4", target)
 	if err != nil {
+		result.Error = err
+		result.Reason = "dns-error"
 		return result, err
 	}
 
@@ -55,29 +59,33 @@ func (d *ICMPDiscoverer) Discover(ctx context.Context, target string) (HostResul
 	}
 	b, err := m.Marshal(nil)
 	if err != nil {
+		result.Error = err
 		return result, err
 	}
 
 	// enviar
 	start := time.Now()
 	if _, err := c.WriteTo(b, dst); err != nil {
+		result.Error = err
+		result.Reason = "send-error"
 		return result, err
 	}
 
-	// leer respuesta con timeout/contexto
+	//leer respuesta con timeout/contexto
 	reply := make([]byte, 1500)
 
-	// configurar deadline para ReadFrom
+	//configurar deadline
 	deadline := time.Now().Add(d.Timeout)
 	if err := c.SetReadDeadline(deadline); err != nil {
+		result.Error = err
 		return result, err
 	}
 
-	//loop de lectura
+	// loop de lectura
 	for {
-		//verificar el contexto antes de la lectura
 		select {
 		case <-ctx.Done():
+			result.Reason = "context-canceled"
 			return result, ctx.Err()
 		default:
 		}
@@ -85,15 +93,16 @@ func (d *ICMPDiscoverer) Discover(ctx context.Context, target string) (HostResul
 		n, peer, err := c.ReadFrom(reply)
 		if err != nil {
 			//timeout o error
-			return result, nil //retornar ALIVE o DEAD segun el caso
+			result.Reason = "timeout" //asumir timeout si no leyo
+			return result, nil        //retornamos Alive=false, no fatal error
 		}
 
-		//validar que sea de quien esperamos
+		//validar source
 		if peer.String() != dst.String() {
 			continue
 		}
 
-		//parsear mensaje
+		// parsear mensaje
 		rm, err := icmp.ParseMessage(ipv4.ICMPTypeEchoReply.Protocol(), reply[:n])
 		if err != nil {
 			continue
@@ -101,9 +110,9 @@ func (d *ICMPDiscoverer) Discover(ctx context.Context, target string) (HostResul
 
 		switch rm.Type {
 		case ipv4.ICMPTypeEchoReply:
-			//(POR AHORA) si recibimos EchoReply de la IP destino, se asume ALIVE
 			result.Alive = true
 			result.RTT = time.Since(start)
+			result.Reason = "echo-reply"
 			return result, nil
 		}
 	}

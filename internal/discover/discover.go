@@ -7,14 +7,16 @@ import (
 
 // modelo neutral reusable para resultados de descubrimiento
 type HostResult struct {
-	IP     string
-	Alive  bool
-	RTT    time.Duration
-	Method string //ahora es icmp, pero mas adelante se puede emplear tcp-ack, arp, etc
+	IP        string
+	Alive     bool
+	RTT       time.Duration
+	Method    string    // icmp, tcp-connect
+	Reason    string    // timeout, refused, echo-reply, etc...
+	Error     error     // internal error
+	Timestamp time.Time // when it occurred
 }
 
-// interfaz que deben emplear los discoverers
+// interfaz que deben implementar los discoverers
 type Discoverer interface {
-	//descoverer hacia un target IP y retorna el resultado
 	Discover(ctx context.Context, target string) (HostResult, error)
 }

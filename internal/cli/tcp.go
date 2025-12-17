@@ -4,10 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"go-scanner/internal/config"
+	"go-scanner/internal/model"
 	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/profile"
 	"go-scanner/internal/report"
+	"go-scanner/internal/scanner"
 	"go-scanner/internal/scanner/tcp"
 	"go-scanner/internal/utils"
 	"os"
@@ -52,31 +53,32 @@ func handleTCPConnect(args []string) {
 
 	//validar argumentos
 	if cmd.NArg() < 1 {
-		fmt.Println("Error: target required (IP or Host)")
+		fmt.Println("Error: target required (IP, CIDR or Range)")
 		fmt.Println("Usage: go-scanner tcp connect -p <ports> <target>")
 		os.Exit(1)
 	}
-	target := cmd.Arg(0)
+	rawTarget := cmd.Arg(0)
 
-	//utilizar resolucion de IP
-	resolvedIP, err := utils.Resolve(target)
+	//parseo de targets (CIDR, Range, Single)
+	targets, err := utils.ParseTarget(rawTarget)
 	if err != nil {
-		fmt.Printf("Error resolving target: %v\n", err)
+		fmt.Printf("Error validating target: %v\n", err)
 		os.Exit(1)
 	}
 
-	if resolvedIP != target {
-		fmt.Printf("Resolved %s to %s\n", target, resolvedIP)
+	if len(targets) == 0 {
+		fmt.Println("Error: No valid targets found.")
+		os.Exit(1)
 	}
 
-	//parsear puertos con internal/utils
+	//parseo de puertos
 	ports, err := utils.ParsePortRange(*portRange)
 	if err != nil {
 		fmt.Printf("Error parsing ports: %v\n", err)
 		os.Exit(1)
 	}
 
-	//cargar perfil base
+	//cargar perfil
 	selectedProfile, ok := profile.Get(*profileName)
 	if !ok {
 		fmt.Printf("Error: unknown profile '%s'\n", *profileName)
@@ -84,10 +86,8 @@ func handleTCPConnect(args []string) {
 		os.Exit(1)
 	}
 
-	//construir policy desde perfil
+	//configurar policy
 	policy := selectedProfile.Policy
-
-	//aplicar overrides explicitos de las flags
 	if *timeoutMs > 0 {
 		policy.Timeout = time.Duration(*timeoutMs) * time.Millisecond
 	}
@@ -101,67 +101,45 @@ func handleTCPConnect(args []string) {
 		activeProbes[i] = strings.TrimSpace(strings.ToLower(activeProbes[i]))
 	}
 
-	//override de active probing si --probe fue escrito
 	if *probeFlag {
 		policy.ActiveProbing = true
 		policy.AllowedProbes = activeProbes
 	}
 
-	//crear configuracion (solo para scanner base)
-	cfg := &config.Config{
-		Target:       resolvedIP,
-		PortRange:    *portRange,
-		Ports:        ports,
-		Timeout:      policy.Timeout,
-		Concurrency:  policy.Concurrency,
-		EnableBanner: *banner,
-		EnableProbe:  policy.ActiveProbing,
-		ProbeTypes:   policy.AllowedProbes,
-	}
-
-	if err := cfg.Validate(); err != nil {
-		fmt.Printf("Configuration error: %v\n", err)
-		os.Exit(1)
-	}
-
-	//scanner base
-	tcpScanner := tcp.NewTCPConnectScanner(
-		cfg.Target,
-		cfg.Ports,
-		cfg.Timeout,
-		cfg.Concurrency,
-		cfg.EnableBanner,
-	)
-
-	//motor de ejecucion
-	engine := orchestrator.NewEngine(policy, cfg.Target, cfg.Ports, tcpScanner)
-
-	//mostrar configuración
+	//resumen
 	fmt.Printf("Profile: %s (%s)\n", selectedProfile.Name, selectedProfile.Description)
-	fmt.Printf("Starting TCP Connect scan to %s (Range: %s, %d ports)\n",
-		cfg.Target,
-		cfg.PortRange,
-		len(cfg.Ports))
+	fmt.Printf("Targets: %d | Ports: %d | Workers: %d | Timeout: %v\n",
+		len(targets), len(ports), policy.Concurrency, policy.Timeout)
 
-	fmt.Printf("Configuration: %d workers | Timeout: %v\n",
-		policy.Concurrency,
-		policy.Timeout)
-
-	if policy.ActiveProbing {
-		fmt.Printf("Active Probing ENABLED: %v\n",
-			policy.AllowedProbes)
+	if policy.Discovery.Enabled {
+		fmt.Printf("Discovery Enabled: %v (Timeout: %v)\n", policy.Discovery.Methods, policy.Discovery.Timeout)
 	}
 
-	//ejecutar la pipeline
+	//SCANNER FACTORY
+	factory := func(t string, meta *model.HostMetadata) scanner.Scanner {
+		//crea scanner para este target especifico
+		return tcp.NewTCPConnectScanner(
+			t,
+			ports,
+			policy.Timeout,
+			policy.Concurrency,
+			*banner,
+			meta,
+		)
+	}
+
+	//ORQUESTACION
+
+	//coordinador
+	coord := orchestrator.NewCoordinator(policy, factory)
+
 	ctx := context.Background()
 	startTime := time.Now()
 
-	//resultados procesados por el motor
-	results := engine.Run(ctx)
-
-	//reportar
-	report.PrintResults(results)
+	//ejecutar
+	resultsChan := coord.Run(ctx, targets)
+	report.PrintResults(resultsChan)
 
 	elapsed := time.Since(startTime)
-	fmt.Printf("Scan completed in %v\n", elapsed)
+	fmt.Printf("Campaign completed in %v\n", elapsed)
 }
