@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"go-scanner/internal/model"
 	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/profile"
 	"go-scanner/internal/report"
@@ -115,7 +116,7 @@ func handleTCPConnect(args []string) {
 	}
 
 	//SCANNER FACTORY
-	factory := func(t string) scanner.Scanner {
+	factory := func(t string, meta *model.HostMetadata) scanner.Scanner {
 		//crea scanner para este target especifico
 		return tcp.NewTCPConnectScanner(
 			t,
@@ -123,6 +124,7 @@ func handleTCPConnect(args []string) {
 			policy.Timeout,
 			policy.Concurrency,
 			*banner,
+			meta,
 		)
 	}
 

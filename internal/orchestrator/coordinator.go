@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"go-scanner/internal/discover"
+	"go-scanner/internal/model"
 	"go-scanner/internal/scanner"
-	// Faltaba importar sync? No, Engine lo usaba.
 )
 
 // ScannerFactory define una funcion que crea un scanner para un target dado
-type ScannerFactory func(target string) scanner.Scanner
+type ScannerFactory func(target string, meta *model.HostMetadata) scanner.Scanner
 
 // Coordinator orquesta la ejecucion sobre multiples targets
 type Coordinator struct {
@@ -32,6 +32,9 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 	go func() {
 		defer close(out)
 
+		//mapa de metadatos
+		metadataMap := make(map[string]*model.HostMetadata)
+
 		//fase de descubrimiento
 		scannableTargets := targets
 		if c.Policy.Discovery.Enabled {
@@ -48,7 +51,15 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 			for _, r := range aliveResults {
 				if r.Alive {
 					aliveIPs = append(aliveIPs, r.IP)
-					//PENDIENTE -> pasar metadata a scanner/report si es necesario
+					//popular metadatos
+					metadataMap[r.IP] = &model.HostMetadata{
+						ID:              r.IP,
+						DiscoveryMethod: r.Method,
+						DiscoveryRTT:    r.RTT,
+						DiscoveryReason: r.Reason,
+						DiscoveryTime:   r.Timestamp,
+						Confidence:      "high", //hardcodeado como high, TEMPORAL
+					}
 				}
 			}
 			scannableTargets = aliveIPs
@@ -64,8 +75,18 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 			default:
 			}
 
+			meta := metadataMap[target]
+
+			//en caso de si discovery esta deshabilitado, hace que meta sea nil pues
+			if meta == nil {
+				meta = &model.HostMetadata{
+					ID:         target,
+					Confidence: "unknown",
+				}
+			}
+
 			//crear scanner via factory
-			s := c.Factory(target)
+			s := c.Factory(target, meta)
 
 			//crear engine
 			engine := NewEngine(c.Policy, target, nil, s)

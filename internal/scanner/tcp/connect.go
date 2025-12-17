@@ -4,6 +4,7 @@ package tcp
 import (
 	"fmt"
 	"go-scanner/internal/banner"
+	"go-scanner/internal/model"
 	"go-scanner/internal/scanner"
 	"net"  //API de red
 	"sync" //sincronizacion
@@ -12,21 +13,23 @@ import (
 
 // encapsula todo el estado necesario para realizar un escaneo TCP
 type TCPConnectScanner struct {
-	Target       string        //host o ip objetivo
-	Ports        []int         //puertos a escanear
-	Timeout      time.Duration //timeout por conexion
-	Concurrency  int           //numero maximo de conexiones concurrentes
-	EnableBanner bool          //habilitar banner grabbing pasivo
+	Target       string              //host o ip objetivo
+	Ports        []int               //puertos a escanear
+	Timeout      time.Duration       //timeout por conexion
+	Concurrency  int                 //numero maximo de conexiones concurrentes
+	EnableBanner bool                //habilitar banner grabbing pasivo
+	Metadata     *model.HostMetadata //contexto del descubrimiento
 }
 
 // nueva instacia de TCPConnectScanner
-func NewTCPConnectScanner(target string, ports []int, timeout time.Duration, concurrency int, enableBanner bool) *TCPConnectScanner {
+func NewTCPConnectScanner(target string, ports []int, timeout time.Duration, concurrency int, enableBanner bool, meta *model.HostMetadata) *TCPConnectScanner {
 	return &TCPConnectScanner{
 		Target:       target,
 		Ports:        ports,
 		Timeout:      timeout,
 		Concurrency:  concurrency,
 		EnableBanner: enableBanner, //banner grabbing
+		Metadata:     meta,
 	}
 }
 
@@ -49,10 +52,11 @@ func (s *TCPConnectScanner) Scan(results chan<- scanner.ScanResult) {
 
 			isOpen, bannerText := s.scanPort(p)
 			results <- scanner.ScanResult{
-				Host:   s.Target,
-				Port:   p,
-				IsOpen: isOpen,
-				Banner: bannerText, //incluir banner grabbing
+				Host:     s.Target,
+				Port:     p,
+				IsOpen:   isOpen,
+				Banner:   bannerText, //incluir banner grabbing
+				Metadata: s.Metadata,
 			}
 		}(port)
 	}
