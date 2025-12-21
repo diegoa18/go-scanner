@@ -2,9 +2,9 @@ package orchestrator
 
 import (
 	"context"
-	"go-scanner/internal/probe"
 	"go-scanner/internal/scanner"
-	"go-scanner/internal/service"
+	"go-scanner/internal/scanner/probe"
+	"go-scanner/internal/scanner/service"
 	"strings"
 	"sync"
 	"time"

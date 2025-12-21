@@ -1,32 +1,46 @@
-package discover
+package tcp
 
 import (
 	"context"
 	"fmt"
+	"go-scanner/internal/model"
 	"net"
 	"strings"
 	"time"
 )
 
+// HostResult es el resultado del descubrimiento (definido localmente para evitar ciclo)
+type HostResult struct {
+	IP         string
+	Alive      bool
+	RTT        time.Duration
+	Method     string
+	Reason     string
+	Error      error
+	Timestamp  time.Time
+	Confidence model.ConfidenceLevel
+	Score      float64
+}
+
 // intenta conectar a una lista de puertos comunes
 // si alguno responde (Open) o rechaza activamente (Closed/RST), el host existe
-type TCPConnectDiscoverer struct {
+type ConnectDiscoverer struct {
 	Ports   []int
 	Timeout time.Duration
 }
 
 // nueva instancia
-func NewTCPConnectDiscoverer(ports []int, timeout time.Duration) *TCPConnectDiscoverer {
+func NewConnectDiscoverer(ports []int, timeout time.Duration) *ConnectDiscoverer {
 	if len(ports) == 0 {
 		ports = []int{80, 443} //defaults
 	}
-	return &TCPConnectDiscoverer{
+	return &ConnectDiscoverer{
 		Ports:   ports,
 		Timeout: timeout,
 	}
 }
 
-func (d *TCPConnectDiscoverer) Discover(ctx context.Context, target string) (HostResult, error) {
+func (d *ConnectDiscoverer) Discover(ctx context.Context, target string) (HostResult, error) {
 	result := HostResult{
 		IP:        target,
 		Alive:     false,

@@ -42,30 +42,45 @@ func handleICMPDiscover(args []string) {
 	}
 	target := cmd.Arg(0)
 
-	// instancia el discoverer
+	// configurar policy para ICMP discovery
 	timeout := time.Duration(*timeoutMs) * time.Millisecond
-	d := discover.NewICMPDiscoverer(timeout)
+	policy := discover.Policy{
+		Enabled:     true,
+		Methods:     []string{"icmp"},
+		Timeout:     timeout,
+		MaxHosts:    0,
+		Concurrency: 1,
+		Delay:       0,
+	}
 
 	fmt.Printf("Starting ICMP Discovery on %s ... (Timeout: %v)\n", target, timeout)
+	fmt.Println("NOTE: ICMP requires root/admin privileges. Run with 'sudo' if you see permission errors.")
 
 	// ejecuta el descubrimiento
 	ctx := context.Background()
-	result, err := d.Discover(ctx, target)
+	results, err := discover.Run(ctx, []string{target}, policy)
 
 	if err != nil {
 		fmt.Printf("Error during discovery: %v\n", err)
-		fmt.Println("NOTE: ICMP usually requires root/admin privileges.")
+		fmt.Println("\n⚠️  ICMP Discovery requires elevated privileges!")
+		fmt.Println("Try running with: sudo go run cmd/go-scanner/main.go discover icmp <target>")
 		os.Exit(1)
 	}
 
 	// muestrar el resultado
-	if result.Alive {
-		fmt.Printf("[ALIVE] %s (RTT: %v)\n", result.IP, result.RTT)
+	if len(results) > 0 && results[0].Alive {
+		fmt.Printf("✓ [ALIVE] %s (RTT: %v, Confidence: %s)\n", results[0].IP, results[0].RTT, results[0].Confidence)
 	} else {
-		fmt.Printf("[DEAD] %s (or blocked)\n", result.IP)
+		fmt.Printf("✗ [DEAD] %s\n", target)
+		if len(results) > 0 {
+			fmt.Printf("   Reason: %s\n", results[0].Reason)
+			if results[0].Error != nil {
+				fmt.Printf("   Error: %v\n", results[0].Error)
+			}
+		}
+		fmt.Println("\n💡 Possible reasons:")
+		fmt.Println("   1. Host is actually down")
+		fmt.Println("   2. ICMP is blocked by firewall")
+		fmt.Println("   3. You need root privileges (try with 'sudo')")
 	}
 }
-
-// helper stub para Windows (Geteuid no existe en windows, usar os.Getuid si existe o constante -1)
-// En Go, os.Geteuid() retorna -1 en windows, asi que funciona "bien" para no crashear, pero no detecta admin real.
-// Se dejara asi por simplicidad del ejemplo.

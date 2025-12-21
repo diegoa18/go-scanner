@@ -3,9 +3,9 @@ package tcp
 //TCP CONNECT SCAN
 import (
 	"fmt"
-	"go-scanner/internal/banner"
 	"go-scanner/internal/model"
 	"go-scanner/internal/scanner"
+	"go-scanner/internal/scanner/banner"
 	"net"  //API de red
 	"sync" //sincronizacion
 	"time"

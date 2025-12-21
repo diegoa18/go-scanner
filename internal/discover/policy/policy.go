@@ -1,8 +1,8 @@
-package discover
+package policy
 
 import "time"
 
-//define la conf para la fase de descubrimiento
+// define la conf para la fase de descubrimiento
 type Policy struct {
 	Enabled     bool
 	Methods     []string      // ICMP, TCP-Connect

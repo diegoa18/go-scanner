@@ -3,7 +3,7 @@ package probe
 //REGISTRO DE PROBERS
 import (
 	"fmt"
-	"go-scanner/internal/probe/http"
+	"go-scanner/internal/scanner/probe/http"
 	"strings"
 )
 

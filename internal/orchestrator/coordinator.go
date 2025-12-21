@@ -8,10 +8,10 @@ import (
 	"go-scanner/internal/scanner"
 )
 
-// ScannerFactory define una funcion que crea un scanner para un target dado
+// define una funcion que crea un scanner para un target dado
 type ScannerFactory func(target string, meta *model.HostMetadata) scanner.Scanner
 
-// Coordinator orquesta la ejecucion sobre multiples targets
+// orquesta la ejecucion sobre multiples targets
 type Coordinator struct {
 	Policy  ScanPolicy
 	Factory ScannerFactory
@@ -24,8 +24,8 @@ func NewCoordinator(policy ScanPolicy, factory ScannerFactory) *Coordinator {
 	}
 }
 
-// Run ejecuta descubrimiento (si aplica) y luego escaneo para cada host
-// Retorna un canal unificado de resultados
+// ejecuta descubrimiento y luego escaneo para cada host
+// retorna un canal unificado de resultados
 func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.ScanResult {
 	out := make(chan scanner.ScanResult)
 
@@ -58,7 +58,7 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 						DiscoveryRTT:    r.RTT,
 						DiscoveryReason: r.Reason,
 						DiscoveryTime:   r.Timestamp,
-						Confidence:      "high", //hardcodeado como high, TEMPORAL
+						Confidence:      r.Confidence, // Usamos el calculado
 					}
 				}
 			}

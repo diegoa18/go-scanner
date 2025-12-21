@@ -2,21 +2,16 @@ package discover
 
 import (
 	"context"
-	"time"
+	"go-scanner/internal/discover/core"
+	"go-scanner/internal/discover/policy"
 )
 
-// modelo neutral reusable para resultados de descubrimiento
-type HostResult struct {
-	IP        string
-	Alive     bool
-	RTT       time.Duration
-	Method    string    // icmp, tcp-connect
-	Reason    string    // timeout, refused, echo-reply, etc...
-	Error     error     // internal error
-	Timestamp time.Time // when it occurred
-}
+// re-exportar tipos publicos para mantener compatibilidad
+type HostResult = core.HostResult
+type Discoverer = core.Discoverer
+type Policy = policy.Policy
 
-// interfaz que deben implementar los discoverers
-type Discoverer interface {
-	Discover(ctx context.Context, target string) (HostResult, error)
+// re-exportar función principal de orquestac	ión
+func Run(ctx context.Context, targets []string, pol Policy) ([]HostResult, error) {
+	return core.Run(ctx, targets, pol)
 }

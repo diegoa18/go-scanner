@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-//encapsula el contexto del descubrimiento sobre un target obtenido
+// encapsula el contexto del descubrimiento sobre un target obtenido
 type HostMetadata struct {
 	ID              string          // IP
 	DiscoveryMethod string          //metodo de descubrimiento (como icmp o tcp-connect)
@@ -12,7 +12,7 @@ type HostMetadata struct {
 	Confidence      ConfidenceLevel //high, medium, low
 }
 
-//nivel de confianza del descubrimiento
+// nivel de confianza del descubrimiento
 type ConfidenceLevel string
 
 const (

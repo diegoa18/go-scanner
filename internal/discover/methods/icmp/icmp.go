@@ -1,4 +1,4 @@
-package discover
+package icmp
 
 import (
 	"context"
@@ -7,24 +7,39 @@ import (
 	"os"
 	"time"
 
+	"go-scanner/internal/model"
+
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 )
 
 // usa paquetes ICMP Echo Reply para detectar hosts
-type ICMPDiscoverer struct {
+type Discoverer struct {
 	Timeout time.Duration
 }
 
+// resultado del descubrimiento (definido localmente para evitar ciclo)
+type HostResult struct {
+	IP         string
+	Alive      bool
+	RTT        time.Duration
+	Method     string
+	Reason     string
+	Error      error
+	Timestamp  time.Time
+	Confidence model.ConfidenceLevel
+	Score      float64
+}
+
 // nueva instacia con timeout default
-func NewICMPDiscoverer(timeout time.Duration) *ICMPDiscoverer {
-	return &ICMPDiscoverer{
+func NewDiscoverer(timeout time.Duration) *Discoverer {
+	return &Discoverer{
 		Timeout: timeout,
 	}
 }
 
 // envia ping
-func (d *ICMPDiscoverer) Discover(ctx context.Context, target string) (HostResult, error) {
+func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, error) {
 	result := HostResult{
 		IP:        target,
 		Alive:     false,
