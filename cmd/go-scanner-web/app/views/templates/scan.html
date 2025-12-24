@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Go-Scanner Web</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .error {
+            color: red;
+            background: #fee;
+            padding: 10px;
+            border-left: 5px solid red;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        .status-OPEN {
+            color: green;
+            font-weight: bold;
+        }
+
+        .status-CLOSED {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Go-Scanner Web Interface</h1>
+
+        <form action="/scan" method="POST" class="form-group">
+            <input type="text" name="target" placeholder="Enter IP or URL (e.g., 127.0.0.1)" value="{{.Target}}"
+                required>
+            <button type="submit">Scan</button>
+        </form>
+
+        {{if .Error}}
+        <div class="error">{{.Error}}</div>
+        {{end}}
+
+        {{if .Results}}
+        <h2>Scan Results for {{.Target}}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>Port</th>
+                    <th>Status</th>
+                    <th>Service</th>
+                    <th>Banner</th>
+                    <th>Confidence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Results}}
+                <tr>
+                    <td>{{.Host}}</td>
+                    <td>{{.Port}}</td>
+                    <td class="status-{{if .IsOpen}}OPEN{{else}}CLOSED{{end}}">{{if .IsOpen}}OPEN{{else}}CLOSED{{end}}
+                    </td>
+                    <td>{{.Service}}</td>
+                    <td>{{.Banner}}</td>
+                    <td>{{if .Metadata}}{{.Metadata.Confidence}}{{else}}N/A{{end}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{end}}
+    </div>
+</body>
+
+</html>
