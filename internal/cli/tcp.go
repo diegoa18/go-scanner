@@ -4,16 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"go-scanner/internal/config/profile"
-	"go-scanner/internal/model"
-	"go-scanner/internal/orchestrator"
+	"go-scanner/internal/app/scan"
 	"go-scanner/internal/report"
-	"go-scanner/internal/scanner"
-	"go-scanner/internal/scanner/tcp"
 	"go-scanner/internal/utils"
 	"os"
 	"strings"
-	"time"
 )
 
 // maneja el comando top "tcp" y sus subcomandos
@@ -72,27 +67,10 @@ func handleTCPConnect(args []string) {
 	}
 
 	//parseo de puertos
-	ports, err := utils.ParsePortRange(*portRange)
+	_, err = utils.ParsePortRange(*portRange)
 	if err != nil {
 		fmt.Printf("Error parsing ports: %v\n", err)
 		os.Exit(1)
-	}
-
-	//cargar perfil
-	selectedProfile, ok := profile.Get(*profileName)
-	if !ok {
-		fmt.Printf("Error: unknown profile '%s'\n", *profileName)
-		fmt.Printf("Available profiles: %v\n", profile.Available())
-		os.Exit(1)
-	}
-
-	//configurar policy
-	policy := selectedProfile.Policy
-	if *timeoutMs > 0 {
-		policy.Timeout = time.Duration(*timeoutMs) * time.Millisecond
-	}
-	if *concurrency > 0 {
-		policy.Concurrency = *concurrency
 	}
 
 	//parsear probes types
@@ -101,45 +79,34 @@ func handleTCPConnect(args []string) {
 		activeProbes[i] = strings.TrimSpace(strings.ToLower(activeProbes[i]))
 	}
 
-	if *probeFlag {
-		policy.ActiveProbing = true
-		policy.AllowedProbes = activeProbes
+	//configurar request
+	req := scan.ScanRequest{
+		Targets:     targets,
+		Ports:       *portRange,
+		ProfileName: *profileName,
+		Options: scan.ScanOptions{
+			TimeoutMs:   *timeoutMs,
+			Concurrency: *concurrency,
+			Banner:      *banner,
+			Probe:       *probeFlag,
+			ProbeTypes:  activeProbes,
+		},
 	}
 
-	//resumen
-	fmt.Printf("Profile: %s (%s)\n", selectedProfile.Name, selectedProfile.Description)
-	fmt.Printf("Targets: %d | Ports: %d | Workers: %d | Timeout: %v\n",
-		len(targets), len(ports), policy.Concurrency, policy.Timeout)
+	// Instanciar servicio
+	svc := scan.NewService()
 
-	if policy.Discovery.Enabled {
-		fmt.Printf("Discovery Enabled: %v (Timeout: %v)\n", policy.Discovery.Methods, policy.Discovery.Timeout)
-	}
-
-	//SCANNER FACTORY
-	factory := func(t string, meta *model.HostMetadata) scanner.Scanner {
-		//crea scanner para este target especifico
-		return tcp.NewTCPConnectScanner(
-			t,
-			ports,
-			policy.Timeout,
-			policy.Concurrency,
-			*banner,
-			meta,
-		)
-	}
-
-	//ORQUESTACION
-
-	//coordinador
-	coord := orchestrator.NewCoordinator(policy, factory)
-
+	// Ejecutar
 	ctx := context.Background()
-	startTime := time.Now()
 
-	//ejecutar
-	resultsChan := coord.Run(ctx, targets)
-	report.PrintResults(resultsChan)
+	reportResult, err := svc.Run(ctx, req)
+	if err != nil {
+		fmt.Printf("Scan failed: %v\n", err)
+		os.Exit(1)
+	}
 
-	elapsed := time.Since(startTime)
-	fmt.Printf("Campaign completed in %v\n", elapsed)
+	// Reportar
+	report.PrintResults(reportResult.Results)
+
+	fmt.Printf("Campaign completed in %v\n", reportResult.Metadata.Duration)
 }

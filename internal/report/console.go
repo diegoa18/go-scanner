@@ -8,14 +8,14 @@ import (
 	"text/tabwriter" //permite imprimir tablas alienadas :p
 )
 
-// lee el canal de resultados y los muestra formateados en consola
-func PrintResults(results <-chan scanner.ScanResult) { //(<-chan): el canal es solo lectura
+// lee el slice de resultados y los muestra formateados en consola
+func PrintResults(results []scanner.ScanResult) {
 	// Agrupar por host
 	resultsByHost := make(map[string][]scanner.ScanResult)
 	var hosts []string
 
 	//stream processing
-	for res := range results {
+	for _, res := range results {
 		if res.IsOpen {
 			if _, exists := resultsByHost[res.Host]; !exists {
 				hosts = append(hosts, res.Host)
