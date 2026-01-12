@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 )
 
-/*(TODO ESTO ES TEMPORAL, ES PARA UNA REPRESENTACION WEB INICIAL)
-SE DEBE DE CAMBIAR Y PROPONER TODO UN APARTADO FRONTEND PARA LA CONTRUCCION DE UI/UX
-POR AHORA LA UNICA TEMPLATE ES EL POBRE HTML QUE SE TANKEA TODO*/
+//ya no se lo tankea todo scan.html, PERO, por ahora se emplea alta segmentacion de HTML ya que se renderiza con Go
 
 // maneja la carga y ejecucion de templates
 type Renderer struct {
@@ -19,13 +17,24 @@ type Renderer struct {
 
 // nueva instancia para precargar templates
 func NewRenderer(templateDir string) (*Renderer, error) {
-	//busqueda de html's
-	pattern := filepath.Join(templateDir, "*.html")
+	// Definir patrones de búsqueda para estructura modular
+	patterns := []string{
+		filepath.Join(templateDir, "layout", "*.html"),
+		filepath.Join(templateDir, "scan", "*.html"),
+		filepath.Join(templateDir, "partials", "*.html"),
+	}
 
-	//parsear los templates
-	tmpl, err := template.ParseGlob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse templates in %s: %w", pattern, err)
+	// Crear template base vacio
+	tmpl := template.New("")
+
+	// Parsear cada patron
+	for _, pattern := range patterns {
+		_, err := tmpl.ParseGlob(pattern)
+		if err != nil {
+			// Es aceptable que un directorio este vacio o no exista al inicio?
+			// Para esta refactorizacion estricta, si falla es error.
+			return nil, fmt.Errorf("failed to parse templates in %s: %w", pattern, err)
+		}
 	}
 
 	return &Renderer{
@@ -35,6 +44,11 @@ func NewRenderer(templateDir string) (*Renderer, error) {
 }
 
 // renderiza un template especifico por nombre
+// OJO: Ahora el nombre del template suele ser "base" o "page" que definen bloques
 func (r *Renderer) Render(w io.Writer, templateName string, data interface{}) error {
+	// IMPORTANTE: Al usar layouts, ejecutamos el template que define la estructura completa
+	// En nuestro caso, 'page.html' define "page" que invoca a "base".
+	// Si templateName es "scan/page.html" (file path), necesitamos ejecutar el bloque que define.
+	// Por convención simple, usaremos el nombre del define.
 	return r.templates.ExecuteTemplate(w, templateName, data)
 }

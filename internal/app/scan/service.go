@@ -91,16 +91,51 @@ func (s *service) Run(ctx context.Context, req ScanRequest) (*ScanReport, error)
 		)
 	}
 
-	// orquestar ejecucion
+	// RUN (orquestacion)
 	coord := orchestrator.NewCoordinator(policy, factory)
+	resultsChan, errChan := coord.Run(ctx, finalTargets)
 
-	// RUN
-	resultsChan := coord.Run(ctx, finalTargets)
-
-	// recoleccion de resultados
+	// estado inicial
+	currentStatus := StatusRunning
+	var scanErrors []ScanError
 	var scanResults []scanner.ScanResult
-	for res := range resultsChan {
-		scanResults = append(scanResults, res)
+
+	//loop de recoleccion, se necesita que ambos canales cierren
+	for resultsChan != nil || errChan != nil {
+		select {
+		case res, ok := <-resultsChan:
+			if !ok {
+				resultsChan = nil
+				continue
+			}
+			scanResults = append(scanResults, res)
+
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				continue
+			}
+			// capturar error
+			scanErrors = append(scanErrors, NewScanError("orchestrator", err, ""))
+		}
+	}
+
+	// determinacion del estado final
+	if len(scanErrors) > 0 {
+		if len(scanResults) > 0 {
+			currentStatus = StatusPartial
+		} else {
+			currentStatus = StatusFailed
+		}
+
+	} else {
+		if len(scanResults) > 0 {
+			currentStatus = StatusCompleted
+		} else {
+
+			//PENDIENTE -> ACTUALMENTE COMPLETED SI NO HUBO ERRORES EXPLICITOS, CONSIDERAR ANOMALIAS
+			currentStatus = StatusCompleted
+		}
 	}
 
 	// construir reporte
@@ -108,8 +143,9 @@ func (s *service) Run(ctx context.Context, req ScanRequest) (*ScanReport, error)
 
 	return &ScanReport{
 		JobID:   jobID,
-		Status:  "success",
+		Status:  currentStatus,
 		Results: scanResults,
+		Errors:  scanErrors,
 		Metadata: ExecutionMetadata{
 			Duration:    elapsed,
 			TargetCount: len(finalTargets),

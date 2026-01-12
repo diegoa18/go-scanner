@@ -1,0 +1,30 @@
+{{define "table"}}
+<h3>Results</h3>
+<table id="resultsTable">
+    <thead>
+        <tr>
+            <th>Host</th>
+            <th>Port</th>
+            <th>Status</th>
+            <th>Service</th>
+            <th>Banner</th>
+            <th>Confidence</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .}}
+        <tr class="result-row" data-status="{{if .IsOpen}}OPEN{{else}}CLOSED{{end}}"
+            data-confidence="{{if .Metadata}}{{.Metadata.Confidence}}{{else}}unknown{{end}}">
+            <td>{{.Host}}</td>
+            <td>{{.Port}}</td>
+            <td class="status-{{if .IsOpen}}OPEN{{else}}CLOSED{{end}}">
+                {{if .IsOpen}}OPEN{{else}}CLOSED{{end}}
+            </td>
+            <td>{{.Service}}</td>
+            <td>{{.Banner}}</td>
+            <td>{{if .Metadata}}{{.Metadata.Confidence}}{{else}}N/A{{end}}</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

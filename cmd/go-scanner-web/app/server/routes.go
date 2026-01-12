@@ -17,6 +17,11 @@ func SetupRoutes(templateDir string) (*http.ServeMux, error) {
 	h := handlers.NewHandler(renderer)
 
 	mux := http.NewServeMux()
+
+	// servir archivos estaticos (css, js)
+	fs := http.FileServer(http.Dir("cmd/go-scanner-web/app/views/static"))
+	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+
 	mux.HandleFunc("/", h.Home)
 	mux.HandleFunc("/scan", h.Scan)
 	return mux, nil

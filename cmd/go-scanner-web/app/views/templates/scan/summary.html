@@ -1,0 +1,8 @@
+{{define "summary"}}
+<div class="flex gap-20 mb-20 bg-light p-15 rad-5">
+    <div><strong>Duration:</strong> {{.Duration}}</div>
+    <div><strong>Targets:</strong> {{.TargetCount}}</div>
+    <div><strong>Profile:</strong> {{.ProfileUsed}}</div>
+    {{/* JobID no esta en Metadata struct directamente, necesitamos pasarlo o acceder desde parent con $ */}}
+</div>
+{{end}}

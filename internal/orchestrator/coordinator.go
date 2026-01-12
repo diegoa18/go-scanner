@@ -25,12 +25,14 @@ func NewCoordinator(policy ScanPolicy, factory ScannerFactory) *Coordinator {
 }
 
 // ejecuta descubrimiento y luego escaneo para cada host
-// retorna un canal unificado de resultados
-func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.ScanResult {
+// uni-canal de reusltados y errores
+func (c *Coordinator) Run(ctx context.Context, targets []string) (<-chan scanner.ScanResult, <-chan error) {
 	out := make(chan scanner.ScanResult)
+	errChan := make(chan error, 1) // buffered para no bloquear si main no lee inmediatamente
 
 	go func() {
 		defer close(out)
+		defer close(errChan)
 
 		//mapa de metadatos
 		metadataMap := make(map[string]*model.HostMetadata)
@@ -42,8 +44,9 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 			aliveResults, err := discover.Run(ctx, targets, c.Policy.Discovery)
 
 			if err != nil {
-				fmt.Printf("Discovery error: %v\n", err)
-				return
+				// Propagar error crítico de discovery
+				errChan <- fmt.Errorf("discovery phase critical failure: %w", err)
+				return // Abortar ejecución
 			}
 
 			//extraer IPs de los resultados vivos
@@ -92,14 +95,19 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) <-chan scanner.
 			engine := NewEngine(c.Policy, target, nil, s)
 
 			//ejecutar engine
+			// PENDIENTE -> el engine debe retornar errores en caso de fallo
 			results := engine.Run(ctx)
 
 			//resultados
 			for res := range results {
-				out <- res
+				select {
+				case <-ctx.Done():
+					return
+				case out <- res:
+				}
 			}
 		}
 	}()
 
-	return out
+	return out, errChan
 }
