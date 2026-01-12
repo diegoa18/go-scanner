@@ -1,0 +1,16 @@
+{{define "filters"}}
+<div class="mb-15 p-10 border-ddd bg-white">
+    <strong>Filters:</strong>
+    <label class="ml-10">
+        <input type="checkbox" id="showClosed" onchange="filterResults()"> Show Closed Ports
+    </label>
+    <label class="ml-20">
+        Min Confidence:
+        <select id="minConfidence" onchange="filterResults()">
+            <option value="all">All</option>
+            <option value="medium">Medium+</option>
+            <option value="high">High Only</option>
+        </select>
+    </label>
+</div>
+{{end}}

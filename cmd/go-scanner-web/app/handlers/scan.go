@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"go-scanner/cmd/go-scanner-web/app/views"
 	"go-scanner/internal/app/scan"
-	"go-scanner/internal/scanner"
-	"go-scanner/internal/utils"
 	"net/http"
 	"time"
 )
 
 // struct de datos para renderizar la pagina
 type PageData struct {
-	Target  string
-	Results []scanner.ScanResult
-	Error   string
+	Title  string
+	Target string
+	Report *scan.ScanReport
+	Error  string
 }
 
 // handler agrupa las dependencias del handler de escaneo
@@ -36,7 +35,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	h.renderer.Render(w, "scan.html", PageData{})
+	h.renderer.Render(w, "page", PageData{Title: "Go-Scanner | Home"})
 }
 
 // procesar escaneo
@@ -47,29 +46,20 @@ func (h *Handler) Scan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rawTarget := r.FormValue("target")
-	data := PageData{Target: rawTarget}
-
-	// validacion de input
-	targets, err := utils.ParseTarget(rawTarget)
-	if err != nil {
-		data.Error = fmt.Sprintf("Invalid target: %v", err)
-		h.renderer.Render(w, "scan.html", data)
-		return
+	data := PageData{
+		Title:  "Go-Scanner | Results",
+		Target: rawTarget,
 	}
 
-	if len(targets) == 0 {
-		data.Error = "No valid targets found"
-		h.renderer.Render(w, "scan.html", data)
-		return
-	}
-
-	// configuracion del escaneo via Service
+	// configuracion del escaneo asumiendo input crudo
 	req := scan.ScanRequest{
-		Targets:     targets,
-		Ports:       "80,443,22,21,25,8080,3000", //default hardcodeada para (ESTO DEBE SER TEMPORAL WEON, ES POR VELOCIDAD, QUE NO SE TE OLVIDE, ESTABLCER SELECCION Y RANGO DE PORTS A ESCANEAR)
-		ProfileName: "default",
+		Targets:     []string{r.FormValue("target")},
+		Ports:       r.FormValue("ports"),
+		ProfileName: r.FormValue("profile"),
 		Options: scan.ScanOptions{
-			Banner: true,
+			Banner: r.FormValue("banner") == "true",
+			Probe:  r.FormValue("probe") == "true",
+			// ProbeTypes -> empty; para usar defaults del profile/cli logic
 		},
 	}
 
@@ -87,10 +77,11 @@ func (h *Handler) Scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data.Results = report.Results
+	// transparencia (reporte)
+	data.Report = report
 
 	// renderizado
-	err = h.renderer.Render(w, "scan.html", data)
+	err = h.renderer.Render(w, "page", data)
 	if err != nil {
 		fmt.Printf("Template execution error: %v\n", err)
 	}

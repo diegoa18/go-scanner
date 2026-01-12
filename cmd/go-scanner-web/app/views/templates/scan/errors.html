@@ -1,0 +1,10 @@
+{{define "errors"}}
+<div class="error section-error">
+    <strong>Errors occurred during scan:</strong>
+    <ul>
+        {{range .}}
+        <li>[{{.Component}}] {{.Error}}</li>
+        {{end}}
+    </ul>
+</div>
+{{end}}
