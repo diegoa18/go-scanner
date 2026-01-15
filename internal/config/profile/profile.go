@@ -20,6 +20,7 @@ var (
 		Name:        "passive",
 		Description: "Passive scan: no active probing, only port detection and banner grabbing",
 		Policy: orchestrator.ScanPolicy{
+			Type:             orchestrator.ScanTypeConnect,
 			Timeout:          2 * time.Second,
 			Concurrency:      50,
 			ServiceDetection: true,
@@ -38,6 +39,7 @@ var (
 		Name:        "default",
 		Description: "Balanced scan: service detection enabled, no active probing by default",
 		Policy: orchestrator.ScanPolicy{
+			Type:             orchestrator.ScanTypeConnect,
 			Timeout:          1 * time.Second,
 			Concurrency:      100,
 			ServiceDetection: true,
@@ -56,6 +58,7 @@ var (
 		Name:        "aggressive",
 		Description: "Aggressive scan: faster, active probing enabled on HTTP/HTTPS",
 		Policy: orchestrator.ScanPolicy{
+			Type:             orchestrator.ScanTypeConnect,
 			Timeout:          500 * time.Millisecond,
 			Concurrency:      200,
 			ServiceDetection: true,

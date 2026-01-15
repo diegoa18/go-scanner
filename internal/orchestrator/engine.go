@@ -78,7 +78,7 @@ func (e *Engine) Run(ctx context.Context) <-chan scanner.ScanResult {
 
 // logica de negocio sobre un resultado crudo
 func (e *Engine) processResult(res scanner.ScanResult) scanner.ScanResult {
-	if !res.IsOpen {
+	if !res.IsOpen() {
 		return res
 	}
 

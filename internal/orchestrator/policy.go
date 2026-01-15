@@ -5,8 +5,17 @@ import (
 	"time"
 )
 
+// tipo de ecaneo
+type ScanType string
+
+const (
+	ScanTypeConnect ScanType = "CONNECT"
+	ScanTypeSYN     ScanType = "SYN"
+)
+
 // define las reglas de negocio para el escaneo
 type ScanPolicy struct {
+	Type ScanType
 	//comportamiento general
 	Timeout     time.Duration
 	Concurrency int
@@ -23,6 +32,7 @@ type ScanPolicy struct {
 // CONSIDERAR USAR profile.Default.Policy EN SU LUGAR
 func DefaultPolicy() ScanPolicy {
 	return ScanPolicy{
+		Type:             ScanTypeConnect,
 		Timeout:          1 * time.Second,
 		Concurrency:      100,
 		ServiceDetection: true,  //detectar servicios de manera pasiva por defecto

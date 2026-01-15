@@ -15,4 +15,5 @@ type ScanOptions struct {
 	Banner      bool //habilita la captura de banners explícitamente
 	Probe       bool //habilita el probing activo
 	ProbeTypes  []string
+	ScanType    string //tipo de escaneo
 }

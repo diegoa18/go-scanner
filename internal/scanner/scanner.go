@@ -5,24 +5,34 @@ import (
 	"go-scanner/internal/model"
 )
 
+// ESTADO DEL PORT
+type PortState string
+
+const (
+	PortStateOpen     PortState = "OPEN"
+	PortStateClosed   PortState = "CLOSED"
+	PortStateFiltered PortState = "FILTERED"
+)
+
 // es el resultado del escaneo de un unico puerto
 type ScanResult struct {
 	Host     string //IP o hostname
 	Port     int
-	IsOpen   bool
-	Service  string //nombre del servicio
-	Banner   string //banner capturado
+	State    PortState // Estado explicito del puerto
+	Service  string    //nombre del servicio
+	Banner   string    //banner capturado
 	Error    error
 	Metadata *model.HostMetadata //contexto del host discovery
 }
 
-// retorna representacion legible del resultado
+// IsOpen helper
+func (r ScanResult) IsOpen() bool {
+	return r.State == PortStateOpen
+}
+
+// representacion bonita del resultado
 func (r ScanResult) String() string {
-	status := "CLOSED"
-	if r.IsOpen {
-		status = "OPEN"
-	}
-	return fmt.Sprintf("[%s] Port %d: %s", r.Host, r.Port, status)
+	return fmt.Sprintf("[%s] Port %d: %s", r.Host, r.Port, r.State)
 }
 
 // define el contrato para cualquier tipo de escaner

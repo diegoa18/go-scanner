@@ -9,7 +9,7 @@ import (
 )
 
 // define una funcion que crea un scanner para un target dado
-type ScannerFactory func(target string, meta *model.HostMetadata) scanner.Scanner
+type ScannerFactory func(target string, meta *model.HostMetadata) (scanner.Scanner, error)
 
 // orquesta la ejecucion sobre multiples targets
 type Coordinator struct {
@@ -88,8 +88,13 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) (<-chan scanner
 				}
 			}
 
-			//crear scanner via factory
-			s := c.Factory(target, meta)
+			//emplea el factory de los scanners
+			s, err := c.Factory(target, meta)
+
+			if err != nil {
+				errChan <- fmt.Errorf("failed to create scanner for %s: %w", target, err)
+				continue
+			}
 
 			//crear engine
 			engine := NewEngine(c.Policy, target, nil, s)

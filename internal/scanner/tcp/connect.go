@@ -51,10 +51,16 @@ func (s *TCPConnectScanner) Scan(results chan<- scanner.ScanResult) {
 			defer func() { <-sem }() //libera el slot del semaforo
 
 			isOpen, bannerText := s.scanPort(p)
+			state := scanner.PortStateClosed
+
+			if isOpen {
+				state = scanner.PortStateOpen
+			}
+
 			results <- scanner.ScanResult{
 				Host:     s.Target,
 				Port:     p,
-				IsOpen:   isOpen,
+				State:    state,
 				Banner:   bannerText, //incluir banner grabbing
 				Metadata: s.Metadata,
 			}
@@ -77,9 +83,7 @@ func (s *TCPConnectScanner) scanPort(port int) (bool, string) {
 
 	var collectedBanner string
 	if s.EnableBanner {
-		// Intentar obtener banner pasivo si la opcion esta habilitada
-		// Ignoramos el error intencionalmente ya que no afecta el estado del puerto
-		collectedBanner, _ = banner.Grab(conn, port)
+		collectedBanner, _ = banner.Grab(conn, port) //intentar obtener el banner
 	}
 
 	return true, collectedBanner
