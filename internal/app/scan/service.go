@@ -10,7 +10,6 @@ import (
 	"go-scanner/internal/model"
 	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/scanner"
-	"go-scanner/internal/scanner/tcp"
 	"go-scanner/internal/utils"
 
 	"github.com/google/uuid"
@@ -79,20 +78,11 @@ func (s *service) Run(ctx context.Context, req ScanRequest) (*ScanReport, error)
 		return nil, errors.New("no valid targets found after parsing")
 	}
 
-	// preparar factory de scanners
-	factory := func(t string, meta *model.HostMetadata) scanner.Scanner {
-		return tcp.NewTCPConnectScanner(
-			t,
-			ports,
-			policy.Timeout,
-			policy.Concurrency,
-			req.Options.Banner, //banner override explicito o false
-			meta,
-		)
+	scannerFactory := func(t string, meta *model.HostMetadata) (scanner.Scanner, error) {
+		return NewScanner(t, ports, policy, meta) //t -> target
 	}
 
-	// RUN (orquestacion)
-	coord := orchestrator.NewCoordinator(policy, factory)
+	coord := orchestrator.NewCoordinator(policy, scannerFactory)
 	resultsChan, errChan := coord.Run(ctx, finalTargets)
 
 	// estado inicial
