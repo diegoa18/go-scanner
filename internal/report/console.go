@@ -9,14 +9,26 @@ import (
 )
 
 // lee el slice de resultados y los muestra formateados en consola
-func PrintResults(results []scanner.ScanResult) {
+func PrintResults(results []scanner.ScanResult, showAll bool) {
 	// Agrupar por host
 	resultsByHost := make(map[string][]scanner.ScanResult)
 	var hosts []string
 
-	//stream processing
+	//stream processing y filtrado
 	for _, res := range results {
-		if res.IsOpen {
+		// Logica de visualizacion:
+		// - Siempre mostrar OPEN
+		// - Siempre mostrar FILTERED
+		// - Mostrar CLOSED solo si showAll es true
+
+		shouldShow := false
+		if res.State == scanner.PortStateOpen || res.State == scanner.PortStateFiltered {
+			shouldShow = true
+		} else if showAll {
+			shouldShow = true
+		}
+
+		if shouldShow {
 			if _, exists := resultsByHost[res.Host]; !exists {
 				hosts = append(hosts, res.Host)
 			}
@@ -28,24 +40,28 @@ func PrintResults(results []scanner.ScanResult) {
 	sort.Strings(hosts)
 
 	fmt.Println("\n--- scanning results ---")
+	if showAll {
+		fmt.Println("[Full report enabled: showing all states]") //para --all
+	}
+
 	if len(hosts) == 0 {
-		fmt.Println("no open ports found.")
+		fmt.Println("no ports found matching criteria.")
 		return
 	}
 
 	for _, host := range hosts {
-		openPorts := resultsByHost[host]
+		hostResults := resultsByHost[host]
 
 		fmt.Printf("\nTarget: %s\n", host)
 
 		//ordenamiento de resultados (ports)
-		sort.Slice(openPorts, func(i, j int) bool {
-			return openPorts[i].Port < openPorts[j].Port
+		sort.Slice(hostResults, func(i, j int) bool {
+			return hostResults[i].Port < hostResults[j].Port
 		})
 
-		//verificar si se capturo algun banner
+		//verificar si se capturo algun banner para ajustar columnas
 		showBanner := false
-		for _, res := range openPorts {
+		for _, res := range hostResults {
 			if res.Banner != "" {
 				showBanner = true
 				break
@@ -53,16 +69,17 @@ func PrintResults(results []scanner.ScanResult) {
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		if showBanner { //si se capturo algun banner -> agregar apartado BANNER en la tabla
-			fmt.Fprintln(w, "PORT\tSERVICE\tBANNER")
-			for _, res := range openPorts {
-				fmt.Fprintf(w, "%d\t%s\t%s\n", res.Port, res.Service, res.Banner)
-			}
 
-		} else { //si no -> simplemente no se muestra el apartado BANNER
-			fmt.Fprintln(w, "PORT\tSERVICE")
-			for _, res := range openPorts {
-				fmt.Fprintf(w, "%d\t%s\n", res.Port, res.Service)
+		// Encabezados con STATE
+		if showBanner {
+			fmt.Fprintln(w, "PORT\tSTATE\tSERVICE\tBANNER")
+			for _, res := range hostResults {
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", res.Port, res.State, res.Service, res.Banner)
+			}
+		} else {
+			fmt.Fprintln(w, "PORT\tSTATE\tSERVICE")
+			for _, res := range hostResults {
+				fmt.Fprintf(w, "%d\t%s\t%s\n", res.Port, res.State, res.Service)
 			}
 		}
 		w.Flush()

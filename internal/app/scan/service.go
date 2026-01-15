@@ -158,9 +158,13 @@ func (s *service) applyOptions(p *orchestrator.ScanPolicy, opts ScanOptions) {
 		if len(opts.ProbeTypes) > 0 {
 			p.AllowedProbes = opts.ProbeTypes
 		}
-		// si el probe -> true, utilizamos http/https por default
 		if len(p.AllowedProbes) == 0 {
 			p.AllowedProbes = []string{"http", "https"}
 		}
+	}
+
+	// override del tipo de escaneo si se especifica
+	if opts.ScanType != "" {
+		p.Type = orchestrator.ScanType(opts.ScanType)
 	}
 }

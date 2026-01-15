@@ -6,6 +6,8 @@ import (
 	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/scanner"
 	"go-scanner/internal/scanner/tcp"
+	"os"
+	"runtime"
 )
 
 // factory para crear scanner
@@ -27,10 +29,35 @@ func NewScanner(target string, ports []int, policy orchestrator.ScanPolicy, meta
 		), nil
 
 	case orchestrator.ScanTypeSYN:
-		//PENDIENTE -> validar privilegios para SYN
-		return nil, fmt.Errorf("SYN scan not implemented yet")
+		//verificar privilegios antes de crear el scanner
+		if err := checkPrivileges(); err != nil {
+			return nil, fmt.Errorf("privileged scan required: %w", err)
+		}
+
+		return tcp.NewTCPSynScanner(
+			target,
+			ports,
+			policy.Timeout,
+			policy.Concurrency,
+			meta,
+		), nil
 
 	default:
 		return nil, fmt.Errorf("unsupported scan type: %s", policy.Type)
 	}
+}
+
+// valida si el proceso tiene permisos
+func checkPrivileges() error {
+	//solo linux
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("raw socket scans are only supported on Linux")
+	}
+
+	//root
+	if os.Geteuid() != 0 {
+		return fmt.Errorf("root privileges required for SYN scan")
+	}
+
+	return nil
 }

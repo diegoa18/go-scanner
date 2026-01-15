@@ -11,45 +11,56 @@ import (
 	"strings"
 )
 
-// maneja el comando top "tcp" y sus subcomandos
+// maneja el comando top "tcp" con suss sub -> connect, syn
 func handleTCPCommand(args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: go-scanner tcp <subcommand> [options] <target>")
-		fmt.Println("Subcommands available:")
-		fmt.Println("  connect    Perform a complete TCP Connect scan")
+		printTCPUsage()
 		os.Exit(1)
 	}
 
 	subcommand := args[0]
 	switch subcommand {
 	case "connect":
-		handleTCPConnect(args[1:])
+		handleTCPGeneric(args[1:], "CONNECT")
+	case "syn":
+		handleTCPGeneric(args[1:], "SYN")
 	default:
 		fmt.Printf("Subcommand unknown for tcp: %s\n", subcommand)
+		printTCPUsage()
 		os.Exit(1)
 	}
 }
 
-// logica especifica para "tcp connect"
-func handleTCPConnect(args []string) {
-	//flagset propio, en caso de conflictos
-	cmd := flag.NewFlagSet("connect", flag.ExitOnError)
+func printTCPUsage() {
+	fmt.Println("Usage: go-scanner tcp <subcommand> [options] <target>")
+	fmt.Println("Subcommands available:")
+	fmt.Println("  connect    Perform a complete TCP Connect scan (User mode)")
+	fmt.Println("  syn        Perform a Stealth TCP SYN scan (Root/CAP_NET_RAW required)")
+}
 
-	//flags de tcp connect
+// logica generica para escaneos TCP (connect, syn)
+func handleTCPGeneric(args []string, scanType string) {
+	dispName := strings.ToLower(scanType)
+	cmd := flag.NewFlagSet(dispName, flag.ExitOnError)
+
+	//flags comunes
 	profileName := cmd.String("profile", "default", "Scan profile: passive, default, aggressive")
 	portRange := cmd.String("p", "1-1024", "Ports to scan (e.g: '80', '1-1024', '80,443')")
 	timeoutMs := cmd.Int("timeout", -1, "Timeout per connection in ms (default: from profile)")
 	concurrency := cmd.Int("threads", -1, "Maximum number of concurrent connections (default: from profile)")
-	banner := cmd.Bool("banner", false, "Enable passive banner grabbing on supported ports")
+
+	//flags irrelevantes para SYN
+	banner := cmd.Bool("banner", false, "Enable passive banner grabbing (Connect scan only)")
 	probeFlag := cmd.Bool("probe", false, "Enable ACTIVE probing on detected services")
 	probeTypes := cmd.String("probe-types", "http,https", "Comma-separated list of probe types to run (default: http,https)")
+	allPorts := cmd.Bool("all", false, "Show all scanned ports (including CLOSED)")
 
-	cmd.Parse(args) //parsear flags
+	cmd.Parse(args)
 
 	//validar argumentos
 	if cmd.NArg() < 1 {
 		fmt.Println("Error: target required (IP, CIDR or Range)")
-		fmt.Println("Usage: go-scanner tcp connect -p <ports> <target>")
+		fmt.Printf("Usage: go-scanner tcp %s -p <ports> <target>\n", dispName)
 		os.Exit(1)
 	}
 	rawTarget := cmd.Arg(0)
@@ -79,7 +90,7 @@ func handleTCPConnect(args []string) {
 		activeProbes[i] = strings.TrimSpace(strings.ToLower(activeProbes[i]))
 	}
 
-	//configurar request
+	//configurar request con el ScanType explicito
 	req := scan.ScanRequest{
 		Targets:     targets,
 		Ports:       *portRange,
@@ -90,6 +101,7 @@ func handleTCPConnect(args []string) {
 			Banner:      *banner,
 			Probe:       *probeFlag,
 			ProbeTypes:  activeProbes,
+			ScanType:    scanType, //inyeccion critica
 		},
 	}
 
@@ -102,11 +114,17 @@ func handleTCPConnect(args []string) {
 	reportResult, err := svc.Run(ctx, req)
 	if err != nil {
 		fmt.Printf("Scan failed: %v\n", err)
+
+		if strings.Contains(err.Error(), "privileged") || strings.Contains(err.Error(), "scans are only supported") {
+			if os.Geteuid() != 0 {
+				fmt.Println("HINT: This scan type likely requires root privileges. Try with sudo.")
+			}
+		}
 		os.Exit(1)
 	}
 
 	// Reportar
-	report.PrintResults(reportResult.Results)
+	report.PrintResults(reportResult.Results, *allPorts)
 
 	fmt.Printf("Campaign completed in %v\n", reportResult.Metadata.Duration)
 }
