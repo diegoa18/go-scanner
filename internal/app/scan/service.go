@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go-scanner/internal/config/profile"
@@ -140,6 +141,7 @@ func (s *service) Run(ctx context.Context, req ScanRequest) (*ScanReport, error)
 			Duration:    elapsed,
 			TargetCount: len(finalTargets),
 			ProfileUsed: selectedProfile.Name,
+			ScanType:    string(policy.Type),
 		},
 	}, nil
 }
@@ -165,6 +167,6 @@ func (s *service) applyOptions(p *orchestrator.ScanPolicy, opts ScanOptions) {
 
 	// override del tipo de escaneo si se especifica
 	if opts.ScanType != "" {
-		p.Type = orchestrator.ScanType(opts.ScanType)
+		p.Type = orchestrator.ScanType(strings.ToUpper(opts.ScanType))
 	}
 }

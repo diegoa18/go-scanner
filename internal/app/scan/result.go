@@ -19,4 +19,5 @@ type ExecutionMetadata struct {
 	Duration    time.Duration //duracion de la operacion
 	TargetCount int           //cantidad de targets
 	ProfileUsed string        //perfil utilizado
+	ScanType    string        //tipo de escaneo (SYN, CONNECT)
 }
