@@ -9,6 +9,7 @@ import (
 	"go-scanner/internal/scanner"
 	"math/rand"
 	"net"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -96,8 +97,15 @@ func (s *TCPSynScanner) Scan(results chan<- scanner.ScanResult) {
 
 	found := make(chan scanner.ScanResult, len(s.Ports)) //canal para resultados encontrados
 
+	//waitgroup para sincronizar el tiempo de espera con las gorutines
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	//listener (gorutine)
-	go s.listen(ctx, fd, dstIP, sentPorts, found)
+	go func() {
+		defer wg.Done()
+		s.listen(ctx, fd, dstIP, sentPorts, found)
+	}()
 
 	//sender (consstruccion de TCP SYN)
 	s.sendPackets(fd, dstIP, srcIP)
@@ -107,6 +115,9 @@ func (s *TCPSynScanner) Scan(results chan<- scanner.ScanResult) {
 
 	//essperar el contexto (el timeout)
 	<-ctx.Done()
+
+	//listener termina cuando el contexto se cancela/timeout
+	wg.Wait()
 	close(found)
 
 	for res := range found {

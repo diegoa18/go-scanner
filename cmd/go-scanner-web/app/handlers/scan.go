@@ -57,8 +57,9 @@ func (h *Handler) Scan(w http.ResponseWriter, r *http.Request) {
 		Ports:       r.FormValue("ports"),
 		ProfileName: r.FormValue("profile"),
 		Options: scan.ScanOptions{
-			Banner: r.FormValue("banner") == "true",
-			Probe:  r.FormValue("probe") == "true",
+			ScanType: r.FormValue("scan_type"),
+			Banner:   r.FormValue("banner") == "true",
+			Probe:    r.FormValue("probe") == "true",
 			// ProbeTypes -> empty; para usar defaults del profile/cli logic
 		},
 	}

@@ -1,4 +1,6 @@
 function filterResults() {
+    const showOpen = document.getElementById('showOpen').checked;
+    const showFiltered = document.getElementById('showFiltered').checked;
     const showClosed = document.getElementById('showClosed').checked;
     const minConfidence = document.getElementById('minConfidence').value;
     const rows = document.getElementsByClassName('result-row');
@@ -9,9 +11,9 @@ function filterResults() {
         let visible = true;
 
         // filtro en base del estado
-        if (!showClosed && status === 'CLOSED') {
-            visible = false;
-        }
+        if (status === 'OPEN' && !showOpen) visible = false;
+        if (status === 'FILTERED' && !showFiltered) visible = false;
+        if (status === 'CLOSED' && !showClosed) visible = false;
 
         //filtro en base a confidence
         if (visible && minConfidence !== 'all') {
@@ -26,9 +28,7 @@ function filterResults() {
 
 //listeners cuando DOM esta listo
 document.addEventListener('DOMContentLoaded', function () {
-    //se inicializa al momento de existir elementos
     const showClosed = document.getElementById('showClosed');
-
     if (showClosed) {
         filterResults();
     }
