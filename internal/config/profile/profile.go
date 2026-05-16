@@ -1,7 +1,7 @@
 package profile
 
 import (
-	"go-scanner/internal/discover"
+	"go-scanner/internal/discover/policy"
 	"go-scanner/internal/orchestrator"
 	"time"
 )
@@ -26,7 +26,7 @@ var (
 			ServiceDetection: true,
 			ActiveProbing:    false,
 			AllowedProbes:    nil,
-			Discovery: discover.Policy{
+			Discovery: policy.Policy{
 				Enabled: false, // passive scan asume que sabes que existen, o no hace ruido extra
 				Methods: nil,
 				Timeout: 0,
@@ -45,7 +45,7 @@ var (
 			ServiceDetection: true,
 			ActiveProbing:    false,
 			AllowedProbes:    nil,
-			Discovery: discover.Policy{
+			Discovery: policy.Policy{
 				Enabled: true,
 				Methods: []string{"icmp", "tcp-connect"},
 				Timeout: 2 * time.Second,
@@ -64,7 +64,7 @@ var (
 			ServiceDetection: true,
 			ActiveProbing:    true,
 			AllowedProbes:    []string{"http", "https"},
-			Discovery: discover.Policy{
+			Discovery: policy.Policy{
 				Enabled: true,
 				Methods: []string{"icmp", "tcp-connect"},
 				Timeout: 1 * time.Second,

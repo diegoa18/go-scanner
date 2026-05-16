@@ -6,14 +6,12 @@ import (
 	"go-scanner/internal/orchestrator"
 	"go-scanner/internal/scanner"
 	"go-scanner/internal/scanner/tcp"
+	"go-scanner/internal/scanner/udp"
 	"os"
 	"runtime"
 )
 
 // factory para crear scanner
-type ScannerFactory func(target string, ports []int, policy orchestrator.ScanPolicy, meta *model.HostMetadata) (scanner.Scanner, error)
-
-// nueva instancia
 func NewScanner(target string, ports []int, policy orchestrator.ScanPolicy, meta *model.HostMetadata) (scanner.Scanner, error) {
 	switch policy.Type {
 	case orchestrator.ScanTypeConnect:
@@ -35,6 +33,15 @@ func NewScanner(target string, ports []int, policy orchestrator.ScanPolicy, meta
 		}
 
 		return tcp.NewTCPSynScanner(
+			target,
+			ports,
+			policy.Timeout,
+			policy.Concurrency,
+			meta,
+		), nil
+
+	case orchestrator.ScanTypeUDP:
+		return udp.NewUDPScanner(
 			target,
 			ports,
 			policy.Timeout,

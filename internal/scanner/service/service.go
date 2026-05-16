@@ -17,7 +17,6 @@ const (
 	ServicePOP3    ServiceType = "POP3"
 	ServiceIMAP    ServiceType = "IMAP"
 	ServiceDNS     ServiceType = "DNS"
-	ServiceLDP     ServiceType = "LDP"
 )
 
 // como fue detectado el servicio
@@ -46,7 +45,6 @@ var commonPorts = map[int]ServiceType{
 	143: ServiceIMAP,
 	443: ServiceHTTPS,
 	465: ServiceSMTP, //SMTPS
-	646: ServiceLDP,
 	993: ServiceIMAP, //IMAPS
 	995: ServicePOP3, //POP3S
 }

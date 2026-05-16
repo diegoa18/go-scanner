@@ -3,7 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
-	"go-scanner/internal/discover"
+	"go-scanner/internal/discover/core"
 	"go-scanner/internal/model"
 	"go-scanner/internal/scanner"
 )
@@ -41,7 +41,7 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) (<-chan scanner
 		scannableTargets := targets
 		if c.Policy.Discovery.Enabled {
 			fmt.Printf("Starting discovery phase on %d targets...\n", len(targets))
-			aliveResults, err := discover.Run(ctx, targets, c.Policy.Discovery)
+			aliveResults, err := core.Run(ctx, targets, c.Policy.Discovery)
 
 			if err != nil {
 				// Propagar error crítico de discovery
@@ -96,8 +96,7 @@ func (c *Coordinator) Run(ctx context.Context, targets []string) (<-chan scanner
 				continue
 			}
 
-			//crear engine
-			engine := NewEngine(c.Policy, target, nil, s)
+			engine := NewEngine(c.Policy, target, s)
 
 			//ejecutar engine
 			// PENDIENTE -> el engine debe retornar errores en caso de fallo

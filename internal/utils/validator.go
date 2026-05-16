@@ -2,15 +2,9 @@ package utils
 
 import (
 	"fmt"
-	"net" //para validacion de IP
 	"strconv"
 	"strings"
 )
-
-// verifica si la estructura IP es valida
-func IsValidIP(ip string) bool {
-	return net.ParseIP(ip) != nil
-}
 
 // parsea un string de puertos a escanear
 func ParsePortRange(portStr string) ([]int, error) {

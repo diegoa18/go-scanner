@@ -2,7 +2,6 @@ package probe
 
 //REGISTRO DE PROBERS
 import (
-	"fmt"
 	"go-scanner/internal/scanner/probe/http"
 	"strings"
 )
@@ -21,15 +20,6 @@ func Get(name string) (Prober, bool) {
 	return p, ok
 }
 
-// probers disponibles
-func Available() []string {
-	keys := make([]string, 0, len(registry))
-	for k := range registry {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 // default probers
 func init() {
 	//http/s apuntan al mismo prober
@@ -38,20 +28,4 @@ func init() {
 	Register("https", h)
 }
 
-// para obtener mas de un prober a la vez
-func GetProbers(types []string) (map[string]Prober, error) {
-	probers := make(map[string]Prober)
-	for _, t := range types {
-		//soporte para "all"
-		if t == "all" {
-			return registry, nil
-		}
 
-		if p, ok := Get(t); ok {
-			probers[t] = p
-		} else {
-			return nil, fmt.Errorf("probe type not found: %s", t)
-		}
-	}
-	return probers, nil
-}

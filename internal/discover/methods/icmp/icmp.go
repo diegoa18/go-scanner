@@ -13,34 +13,18 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
-// usa paquetes ICMP Echo Reply para detectar hosts
 type Discoverer struct {
 	Timeout time.Duration
 }
 
-// resultado del descubrimiento (definido localmente para evitar ciclo)
-type HostResult struct {
-	IP         string
-	Alive      bool
-	RTT        time.Duration
-	Method     string
-	Reason     string
-	Error      error
-	Timestamp  time.Time
-	Confidence model.ConfidenceLevel
-	Score      float64
-}
-
-// nueva instacia con timeout default
 func NewDiscoverer(timeout time.Duration) *Discoverer {
 	return &Discoverer{
 		Timeout: timeout,
 	}
 }
 
-// envia ping
-func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, error) {
-	result := HostResult{
+func (d *Discoverer) Discover(ctx context.Context, target string) (model.HostResult, error) {
+	result := model.HostResult{
 		IP:        target,
 		Alive:     false,
 		Method:    "icmp",
@@ -55,7 +39,6 @@ func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, e
 	}
 	defer c.Close()
 
-	//resolver IP
 	dst, err := net.ResolveIPAddr("ip4", target)
 	if err != nil {
 		result.Error = err
@@ -63,7 +46,6 @@ func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, e
 		return result, err
 	}
 
-	// construir mensaje ICMP Echo
 	m := icmp.Message{
 		Type: ipv4.ICMPTypeEcho, Code: 0,
 		Body: &icmp.Echo{
@@ -78,7 +60,6 @@ func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, e
 		return result, err
 	}
 
-	// enviar
 	start := time.Now()
 	if _, err := c.WriteTo(b, dst); err != nil {
 		result.Error = err
@@ -86,17 +67,14 @@ func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, e
 		return result, err
 	}
 
-	//leer respuesta con timeout/contexto
 	reply := make([]byte, 1500)
 
-	//configurar deadline
 	deadline := time.Now().Add(d.Timeout)
 	if err := c.SetReadDeadline(deadline); err != nil {
 		result.Error = err
 		return result, err
 	}
 
-	// loop de lectura
 	for {
 		select {
 		case <-ctx.Done():
@@ -107,17 +85,14 @@ func (d *Discoverer) Discover(ctx context.Context, target string) (HostResult, e
 
 		n, peer, err := c.ReadFrom(reply)
 		if err != nil {
-			//timeout o error
-			result.Reason = "timeout" //asumir timeout si no leyo
-			return result, nil        //retornamos Alive=false, no fatal error
+			result.Reason = "timeout"
+			return result, nil
 		}
 
-		//validar source
 		if peer.String() != dst.String() {
 			continue
 		}
 
-		// parsear mensaje
 		rm, err := icmp.ParseMessage(ipv4.ICMPTypeEchoReply.Protocol(), reply[:n])
 		if err != nil {
 			continue

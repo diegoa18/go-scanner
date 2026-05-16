@@ -74,6 +74,11 @@ th {
     color: red;
 }
 
+.status-FILTERED {
+    color: orange;
+    font-style: italic;
+}
+
 /* Utilities */
 .mb-15 {
     margin-bottom: 15px;

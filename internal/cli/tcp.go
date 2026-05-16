@@ -77,13 +77,6 @@ func handleTCPGeneric(args []string, scanType string) {
 		os.Exit(1)
 	}
 
-	//parseo de puertos
-	_, err = utils.ParsePortRange(*portRange)
-	if err != nil {
-		fmt.Printf("Error parsing ports: %v\n", err)
-		os.Exit(1)
-	}
-
 	//parsear probes types
 	activeProbes := strings.Split(*probeTypes, ",")
 	for i := range activeProbes {

@@ -4,7 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"go-scanner/internal/discover"
+	"go-scanner/internal/discover/core"
+	"go-scanner/internal/discover/policy"
 	"os"
 	"time"
 )
@@ -44,7 +45,7 @@ func handleICMPDiscover(args []string) {
 
 	// configurar policy para ICMP discovery
 	timeout := time.Duration(*timeoutMs) * time.Millisecond
-	policy := discover.Policy{
+	pol := policy.Policy{
 		Enabled:     true,
 		Methods:     []string{"icmp"},
 		Timeout:     timeout,
@@ -58,7 +59,7 @@ func handleICMPDiscover(args []string) {
 
 	// ejecuta el descubrimiento
 	ctx := context.Background()
-	results, err := discover.Run(ctx, []string{target}, policy)
+	results, err := core.Run(ctx, []string{target}, pol)
 
 	if err != nil {
 		fmt.Printf("Error during discovery: %v\n", err)

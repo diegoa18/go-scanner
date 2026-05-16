@@ -14,16 +14,13 @@ import (
 type Engine struct {
 	Policy  ScanPolicy
 	Target  string
-	Ports   []int
 	Scanner scanner.Scanner
 }
 
-// nueva instancia de pipeline
-func NewEngine(policy ScanPolicy, target string, ports []int, baseScanner scanner.Scanner) *Engine {
+func NewEngine(policy ScanPolicy, target string, baseScanner scanner.Scanner) *Engine {
 	return &Engine{
 		Policy:  policy,
 		Target:  target,
-		Ports:   ports,
 		Scanner: baseScanner,
 	}
 }

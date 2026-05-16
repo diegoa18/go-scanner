@@ -94,3 +94,20 @@ go-scanner.exe discover icmp 8.8.8.8
 # With custom timeout (ms)
 go-scanner.exe discover icmp -timeout 500 192.168.1.1
 ```
+
+### UDP Scan
+
+UDP port scanning with service detection.
+
+> **Note:** Running as root enables ICMP-based closed port detection. Without root privileges, UDP scan works but may report some closed ports as "open" or "filtered".
+
+```bash
+# Basic UDP scan
+go-scanner.exe udp -p 53,67,123,161 8.8.8.8
+
+# With custom timeout
+go-scanner.exe udp -p 53,161 --timeout 2000 target.com
+
+# Scan with all results
+go-scanner.exe udp -p 1-100 --all target.com
+```

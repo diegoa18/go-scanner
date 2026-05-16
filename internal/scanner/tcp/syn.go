@@ -14,6 +14,9 @@ import (
 	"time"
 )
 
+// ensure TCPSynScanner implements scanner.Scanner
+var _ scanner.Scanner = (*TCPSynScanner)(nil)
+
 //TCP SYN SCANNER!
 
 // estructura del SYN
@@ -60,6 +63,10 @@ func NewTCPSynScanner(target string, ports []int, timeout time.Duration, concurr
 
 // corazon del SYN scanner
 func (s *TCPSynScanner) Scan(results chan<- scanner.ScanResult) {
+	s.ScanCtx(context.Background(), results)
+}
+
+func (s *TCPSynScanner) ScanCtx(ctx context.Context, results chan<- scanner.ScanResult) {
 	defer close(results)
 
 	// ressolver IP
@@ -77,7 +84,6 @@ func (s *TCPSynScanner) Scan(results chan<- scanner.ScanResult) {
 	}
 
 	//creacion del socket RAW -> permisos root
-	// AF_INET -> IPv4, SOCK_RAW -> Acceso crudo, IPPROTO_TCP -> Protocolo TCP
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
 	if err != nil {
 		s.reportFatalError(results, s.Ports[0], fmt.Errorf("raw socket creation failed (are you root?): %v", err))
@@ -91,32 +97,26 @@ func (s *TCPSynScanner) Scan(results chan<- scanner.ScanResult) {
 		sentPorts[uint16(p)] = time.Now()
 	}
 
-	//contexto con timeout (evita que el listener sea infinito)
-	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout+(2*time.Second)) // Timeout + margen
+	//contexto con timeout combinado con el del caller
+	scanCtx, cancel := context.WithTimeout(ctx, s.Timeout+(2*time.Second))
 	defer cancel()
 
-	found := make(chan scanner.ScanResult, len(s.Ports)) //canal para resultados encontrados
+	found := make(chan scanner.ScanResult, len(s.Ports))
 
-	//waitgroup para sincronizar el tiempo de espera con las gorutines
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	//listener (gorutine)
 	go func() {
 		defer wg.Done()
-		s.listen(ctx, fd, dstIP, sentPorts, found)
+		s.listen(scanCtx, fd, dstIP, sentPorts, found)
 	}()
 
-	//sender (consstruccion de TCP SYN)
 	s.sendPackets(fd, dstIP, srcIP)
 
-	//ressultados
 	resultsMap := make(map[int]scanner.ScanResult)
 
-	//essperar el contexto (el timeout)
-	<-ctx.Done()
+	<-scanCtx.Done()
 
-	//listener termina cuando el contexto se cancela/timeout
 	wg.Wait()
 	close(found)
 
@@ -127,8 +127,7 @@ func (s *TCPSynScanner) Scan(results chan<- scanner.ScanResult) {
 	for _, port := range s.Ports {
 		if res, ok := resultsMap[port]; ok {
 			results <- res
-
-		} else { //sin resspuesta -> FILTERED
+		} else {
 			results <- scanner.ScanResult{
 				Host:     s.Target,
 				Port:     port,
@@ -172,17 +171,9 @@ func (s *TCPSynScanner) sendPackets(fd int, dstIP net.IP, srcIP net.IP) {
 		// re-serializacion con checksum correcto
 		finalPacket := tcpToBytes(&tcpH)
 
-		//envio (socket, segmento TCP, flags, socket address)
-		err := syscall.Sendto(fd, finalPacket, 0, sa)
-		if err != nil {
-			//PEDIENTE
-			continue
-		}
+		syscall.Sendto(fd, finalPacket, 0, sa)
 
-		// pequeño control de flujo
-		if s.Concurrency > 0 && s.Concurrency < 1000 {
-			time.Sleep(time.Millisecond * 1)
-		}
+		time.Sleep(time.Millisecond)
 	}
 }
 

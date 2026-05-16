@@ -1,0 +1,17 @@
+go-scanner
+go-scanner-web
+main
+*.exe
+*.out
+
+.idea/
+*.swp
+*.swo
+*~
+
+.DS_Store
+Thumbs.db
+
+vendor/
+
+.env

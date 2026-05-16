@@ -21,6 +21,8 @@ func Execute() {
 	switch command {
 	case "tcp":
 		handleTCPCommand(subArgs)
+	case "udp":
+		handleUDPCommand(subArgs)
 	case "discover":
 		handleDiscoverCommand(subArgs)
 	default:
@@ -32,9 +34,12 @@ func Execute() {
 
 // mensajes de ayuda (MEJORAR)
 func printUsage() {
-	fmt.Println("Usage: go-scanner <command> <subcommand> [options] <target>")
+	fmt.Println("Usage: go-scanner <command> [options] <target>")
 	fmt.Println("Commands available:")
-	fmt.Println("  tcp    TCP scan tools")
+	fmt.Println("  tcp    TCP scan tools (connect, syn)")
+	fmt.Println("  udp    UDP scan tools")
+	fmt.Println("  discover  Host discovery tools")
 	fmt.Println("\nExample:")
 	fmt.Println("  go-scanner tcp connect -p 80,443 192.168.1.1")
+	fmt.Println("  go-scanner udp -p 53,67,123 192.168.1.1")
 }
